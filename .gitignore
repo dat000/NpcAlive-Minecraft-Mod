@@ -1,0 +1,20 @@
+# Gradle
+.gradle/
+build/
+bin/
+out/
+
+# Minecraft / NeoForge runtime environment (mundos de prueba, logs, configs locales)
+run/
+
+# IDEs (IntelliJ IDEA, VS Code, Eclipse)
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Archivos del Sistema Operativo
+.DS_Store
+Thumbs.db
