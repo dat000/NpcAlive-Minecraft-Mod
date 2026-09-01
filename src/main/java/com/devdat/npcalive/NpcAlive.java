@@ -15,8 +15,8 @@ public class NpcAlive {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public NpcAlive(IEventBus modEventBus, ModContainer modContainer) {
-        modEventBus.addListener(this::addEntityAttributes);
         ModEntities.register(modEventBus);
+        modEventBus.addListener(this::addEntityAttributes);
         LOGGER.info("Iniciando Npc Alive...");
     }
 
