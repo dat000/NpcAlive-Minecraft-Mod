@@ -17,7 +17,7 @@ public class ServerPayloadHandler {
                     case "FOLLOW" -> handleToggleFollow(serverPlayer, npc);
                     case "GREET" -> handleGreet(serverPlayer, npc);
                     case "PROPOSE" -> handlePropose(serverPlayer, npc);
-                    case "INVENTORY" -> serverPlayer.sendSystemMessage(Component.literal("Abriendo inventario de " + npc.getNpcTitle() + "... (En desarrollo)"));
+                    case "INVENTORY" -> openNpcInventory(serverPlayer, npc);
                     case "ROMANCE" -> handleRomance(serverPlayer, npc);
                     case "MEAN" -> handleMean(serverPlayer, npc);
                     case "GIFT" -> handleGift(serverPlayer, npc);
@@ -127,6 +127,21 @@ public class ServerPayloadHandler {
         } else {
             serverPlayer.sendSystemMessage(Component.literal("Necesitas sostener un Diamante en la mano para proponer matrimonio."));
         }
+    }
+
+    // Nuevo metodo en la clase:
+    private static void openNpcInventory(ServerPlayer player, NpcEntity npc) {
+        player.openMenu(new net.minecraft.world.MenuProvider() {
+            @Override
+            public Component getDisplayName() {
+                return Component.literal("Mochila de " + npc.getNpcTitle());
+            }
+
+            @Override
+            public net.minecraft.world.inventory.AbstractContainerMenu createMenu(int containerId, net.minecraft.world.entity.player.Inventory playerInventory, net.minecraft.world.entity.player.Player playerEntity) {
+                return net.minecraft.world.inventory.ChestMenu.threeRows(containerId, playerInventory, npc.getInventory());
+            }
+        });
     }
 
     private static void playFeedbackParticles(NpcEntity npc, net.minecraft.core.particles.ParticleOptions particle) {

@@ -34,6 +34,8 @@ import org.jetbrains.annotations.Nullable;
 public class NpcEntity extends PathfinderMob {
     private int interactionPauseTimer = 0;
 
+    private final net.minecraft.world.SimpleContainer inventory = new net.minecraft.world.SimpleContainer(27);
+
     private static final EntityDataAccessor<Integer> DATA_ROMANCE = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<String> DATA_NPC_TITLE = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Integer> DATA_NPC_VARIANT = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
@@ -182,6 +184,9 @@ public class NpcEntity extends PathfinderMob {
         output.putInt("NpcBehavior", this.getBehavior().ordinal());
         output.putInt("Romance", this.getRomance());
         output.putBoolean("IsMarried", this.isMarried());
+
+        // Guardar el inventario usando el sub-output de ValueOutput
+        net.minecraft.world.ContainerHelper.saveAllItems(output.child("NpcInventory"), this.inventory.getItems());
     }
 
     @Override
@@ -199,6 +204,11 @@ public class NpcEntity extends PathfinderMob {
         });
         input.getInt("Romance").ifPresent(this::setRomance);
         this.setMarried(input.getBooleanOr("IsMarried", false));
+
+        // Cargar el inventario verificando si el hijo existe con Optional
+        input.child("NpcInventory").ifPresent(childInput -> {
+            net.minecraft.world.ContainerHelper.loadAllItems(childInput, this.inventory.getItems());
+        });
     }
 
     public String getNpcTitle() {
@@ -281,5 +291,9 @@ public class NpcEntity extends PathfinderMob {
 
     public void setMarried(boolean married) {
         this.entityData.set(DATA_IS_MARRIED, married);
+    }
+
+    public net.minecraft.world.SimpleContainer getInventory() {
+        return this.inventory;
     }
 }
