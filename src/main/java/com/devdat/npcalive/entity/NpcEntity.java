@@ -185,8 +185,20 @@ public class NpcEntity extends PathfinderMob {
         output.putInt("Romance", this.getRomance());
         output.putBoolean("IsMarried", this.isMarried());
 
-        // Guardar el inventario usando el sub-output de ValueOutput
+        // Guardar la mochila (ValueOutput.child es directo, sin ifPresent)
         net.minecraft.world.ContainerHelper.saveAllItems(output.child("NpcInventory"), this.inventory.getItems());
+
+        // Guardar el equipamiento visual en una NonNullList de 6 elementos
+        net.minecraft.core.NonNullList<net.minecraft.world.item.ItemStack> equipmentList =
+                net.minecraft.core.NonNullList.withSize(6, net.minecraft.world.item.ItemStack.EMPTY);
+        equipmentList.set(0, this.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD));
+        equipmentList.set(1, this.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST));
+        equipmentList.set(2, this.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.LEGS));
+        equipmentList.set(3, this.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET));
+        equipmentList.set(4, this.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND));
+        equipmentList.set(5, this.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND));
+
+        net.minecraft.world.ContainerHelper.saveAllItems(output.child("NpcEquipment"), equipmentList);
     }
 
     @Override
@@ -205,9 +217,23 @@ public class NpcEntity extends PathfinderMob {
         input.getInt("Romance").ifPresent(this::setRomance);
         this.setMarried(input.getBooleanOr("IsMarried", false));
 
-        // Cargar el inventario verificando si el hijo existe con Optional
+        // Cargar la mochila (ValueInput sí devuelve Optional, por lo que lleva ifPresent)
         input.child("NpcInventory").ifPresent(childInput -> {
             net.minecraft.world.ContainerHelper.loadAllItems(childInput, this.inventory.getItems());
+        });
+
+        // Cargar el equipamiento
+        input.child("NpcEquipment").ifPresent(childInput -> {
+            net.minecraft.core.NonNullList<net.minecraft.world.item.ItemStack> equipmentList =
+                    net.minecraft.core.NonNullList.withSize(6, net.minecraft.world.item.ItemStack.EMPTY);
+            net.minecraft.world.ContainerHelper.loadAllItems(childInput, equipmentList);
+
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, equipmentList.get(0));
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, equipmentList.get(1));
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, equipmentList.get(2));
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, equipmentList.get(3));
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, equipmentList.get(4));
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, equipmentList.get(5));
         });
     }
 
@@ -295,5 +321,43 @@ public class NpcEntity extends PathfinderMob {
 
     public net.minecraft.world.SimpleContainer getInventory() {
         return this.inventory;
+    }
+
+    @Override
+    public net.minecraft.world.item.ItemStack getItemBySlot(net.minecraft.world.entity.EquipmentSlot slot) {
+        // Mapeamos ranuras fijas de la mochila (SimpleContainer) al equipo del NPC
+        int targetSlot = switch (slot) {
+            case MAINHAND -> 0; // Ranura 0 de la mochila es la mano principal
+            case HEAD     -> 1; // Ranura 1 es el casco
+            case CHEST    -> 2; // Ranura 2 es la pechera
+            case LEGS     -> 3; // Ranura 3 es las perneras
+            case FEET     -> 4; // Ranura 4 son las botas
+            case OFFHAND  -> 5; // Ranura 5 es la mano secundaria
+            default -> -1;
+        };
+
+        if (targetSlot >= 0 && targetSlot < this.inventory.getContainerSize()) {
+            return this.inventory.getItem(targetSlot);
+        }
+        return super.getItemBySlot(slot);
+    }
+
+    @Override
+    public void setItemSlot(net.minecraft.world.entity.EquipmentSlot slot, net.minecraft.world.item.ItemStack stack) {
+        int targetSlot = switch (slot) {
+            case MAINHAND -> 0;
+            case HEAD     -> 1;
+            case CHEST    -> 2;
+            case LEGS     -> 3;
+            case FEET     -> 4;
+            case OFFHAND  -> 5;
+            default -> -1;
+        };
+
+        if (targetSlot >= 0 && targetSlot < this.inventory.getContainerSize()) {
+            this.inventory.setItem(targetSlot, stack);
+        } else {
+            super.setItemSlot(slot, stack);
+        }
     }
 }
