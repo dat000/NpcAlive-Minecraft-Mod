@@ -33,11 +33,14 @@ import org.jetbrains.annotations.Nullable;
 
 public class NpcEntity extends PathfinderMob {
     private int interactionPauseTimer = 0;
+
+    private static final EntityDataAccessor<Integer> DATA_ROMANCE = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<String> DATA_NPC_TITLE = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Integer> DATA_NPC_VARIANT = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_NPC_GENDER = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_FRIENDSHIP = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_NPC_BEHAVIOR = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
+
     public enum NpcBehavior {
         WANDER,
         FOLLOW,
@@ -163,6 +166,7 @@ public class NpcEntity extends PathfinderMob {
         builder.define(DATA_NPC_GENDER, 0);
         builder.define(DATA_FRIENDSHIP, 0);
         builder.define(DATA_NPC_BEHAVIOR, NpcBehavior.WANDER.ordinal()); // Empieza vagando por defecto
+        builder.define(DATA_ROMANCE, 0);
     }
 
     @Override
@@ -173,6 +177,7 @@ public class NpcEntity extends PathfinderMob {
         output.putInt("NpcGender", this.getNpcGenderOrdinal());
         output.putInt("Friendship", this.getFriendship());
         output.putInt("NpcBehavior", this.getBehavior().ordinal());
+        output.putInt("Romance", this.getRomance());
     }
 
     @Override
@@ -188,6 +193,7 @@ public class NpcEntity extends PathfinderMob {
                 this.setBehavior(behaviors[ordinal]);
             }
         });
+        input.getInt("Romance").ifPresent(this::setRomance);
     }
 
     public String getNpcTitle() {
@@ -240,5 +246,17 @@ public class NpcEntity extends PathfinderMob {
 
     public void setBehavior(NpcBehavior behavior) {
         this.entityData.set(DATA_NPC_BEHAVIOR, behavior.ordinal());
+    }
+
+    public int getRomance() {
+        return this.entityData.get(DATA_ROMANCE);
+    }
+
+    public void setRomance(int romance) {
+        this.entityData.set(DATA_ROMANCE, romance);
+    }
+
+    public void addRomance(int amount) {
+        this.setRomance(this.getRomance() + amount);
     }
 }

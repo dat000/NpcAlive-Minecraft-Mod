@@ -26,11 +26,11 @@ public class NpcDialogScreen extends Screen {
         super.init();
 
         int boxWidth = 220;
-        int boxHeight = 220;
+        int boxHeight = 205; // Aumentamos la altura de la caja
         int boxX = (this.width - boxWidth) / 2;
         int boxY = (this.height - boxHeight) / 2;
 
-        int startY = boxY + 75;
+        int startY = boxY + 80; // Bajamos el inicio de los botones para que no choquen con el texto
         int btnWidth = 190;
         int btnHeight = 20;
         int btnX = boxX + 15;
@@ -49,11 +49,7 @@ public class NpcDialogScreen extends Screen {
             }
         }
 
-        // Botones de acción
-        this.addRenderableWidget(Button.builder(Component.literal("Modo: " + behaviorText), button -> {
-            sendAction("FOLLOW");
-        }).bounds(btnX, startY + 96, btnWidth, btnHeight).build());
-
+        // Botones de acción ordenados verticalmente
         this.addRenderableWidget(Button.builder(Component.literal("Saludar"), button -> {
             sendAction("GREET");
         }).bounds(btnX, startY, btnWidth, btnHeight).build());
@@ -69,6 +65,10 @@ public class NpcDialogScreen extends Screen {
         this.addRenderableWidget(Button.builder(Component.literal("Comerciar"), button -> {
             sendAction("TRANSACTIONS");
         }).bounds(btnX, startY + 72, btnWidth, btnHeight).build());
+
+        this.addRenderableWidget(Button.builder(Component.literal("Modo: " + behaviorText), button -> {
+            sendAction("FOLLOW");
+        }).bounds(btnX, startY + 96, btnWidth, btnHeight).build());
     }
 
     private void sendAction(String actionName) {
@@ -81,7 +81,7 @@ public class NpcDialogScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         int boxWidth = 220;
-        int boxHeight = 185;
+        int boxHeight = 205; // Misa altura para que coincida con el fondo
         int boxX = (this.width - boxWidth) / 2;
         int boxY = (this.height - boxHeight) / 2;
 
@@ -89,20 +89,23 @@ public class NpcDialogScreen extends Screen {
         graphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xCC111111);
         graphics.outline(boxX, boxY, boxWidth, boxHeight, 0xFF555555);
 
-        // 2. Obtener el valor actual de amistad desde la entidad del cliente
+        // 2. Obtener los valores actuales desde la entidad del cliente
         int friendshipValue = 0;
+        int romanceValue = 0;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != null) {
             Entity entity = mc.level.getEntity(this.entityId);
             if (entity instanceof NpcEntity npc) {
                 friendshipValue = npc.getFriendship();
+                romanceValue = npc.getRomance();
             }
         }
 
-        // 3. Textos informativos con la variable integrada
+        // 3. Textos informativos con espacio adecuado arriba de los botones
         graphics.text(this.font, Component.literal("¡Hola! Me llamo " + this.npcTitle), boxX + 15, boxY + 15, 0xFFFFFFFF, true);
-        graphics.text(this.font, Component.literal("Género: " + this.genderStr), boxX + 15, boxY + 32, 0xFFCCCCCC, true);
-        graphics.text(this.font, Component.literal("Amistad: " + friendshipValue), boxX + 15, boxY + 49, 0xFF55FF55, true);
+        graphics.text(this.font, Component.literal("Género: " + this.genderStr), boxX + 15, boxY + 30, 0xFFCCCCCC, true);
+        graphics.text(this.font, Component.literal("Amistad: " + friendshipValue), boxX + 15, boxY + 45, 0xFF55FF55, true);
+        graphics.text(this.font, Component.literal("Romance: " + romanceValue), boxX + 15, boxY + 60, 0xFFFF55FF, true);
 
         // 4. Renderizar widgets encima
         super.extractRenderState(graphics, mouseX, mouseY, delta);
