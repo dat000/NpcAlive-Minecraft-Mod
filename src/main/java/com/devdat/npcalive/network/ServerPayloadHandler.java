@@ -13,8 +13,8 @@ public class ServerPayloadHandler {
             Entity entity = serverPlayer.level().getEntity(payload.entityId());
 
             if (entity instanceof NpcEntity npc) {
-                // Procesar la acción según el tipo recibido
                 switch (payload.actionName()) {
+                    case "FOLLOW" -> handleToggleFollow(serverPlayer, npc);
                     case "GREET" -> handleGreet(serverPlayer, npc);
                     case "ROMANCE" -> handleRomance(serverPlayer, npc);
                     case "MEAN" -> handleMean(serverPlayer, npc);
@@ -25,20 +25,38 @@ public class ServerPayloadHandler {
         }
     }
 
+    private static void handleToggleFollow(ServerPlayer player, NpcEntity npc) {
+        if (npc.getFriendship() < 0) {
+            player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " te ignora por completo."));
+            return;
+        }
+
+        NpcEntity.NpcBehavior nextBehavior = npc.getBehavior().next();
+        npc.setBehavior(nextBehavior);
+
+        switch (nextBehavior) {
+            case WANDER -> player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " ahora camina libremente."));
+            case FOLLOW -> player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " ahora te está siguiendo."));
+            case STAY -> player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " se quedará esperando aquí."));
+        }
+    }
+
     private static void handleGreet(ServerPlayer player, NpcEntity npc) {
-        player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " te saluda amablemente. ¡Hola!"));
-        // Aquí puedes sumar puntos de amistad en el futuro
+        npc.addFriendship(5); // Suma 5 puntos
+        player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " te saluda amablemente. (Amistad: " + npc.getFriendship() + ")"));
     }
 
     private static void handleRomance(ServerPlayer player, NpcEntity npc) {
-        player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " se sonroja levemente ante tu atención."));
+        npc.addFriendship(10); // Suma 10 puntos
+        player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " se sonroja levemente. (Amistad: " + npc.getFriendship() + ")"));
     }
 
     private static void handleMean(ServerPlayer player, NpcEntity npc) {
-        player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " se ve ofendido por tu actitud."));
+        npc.addFriendship(-5); // Resta 5 puntos
+        player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " se ve ofendido por tu actitud. (Amistad: " + npc.getFriendship() + ")"));
     }
 
     private static void handleTransactions(ServerPlayer player, NpcEntity npc) {
-        player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " abre su inventario o tienda."));
+        player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " evalúa negociar contigo. (Amistad: " + npc.getFriendship() + ")"));
     }
 }

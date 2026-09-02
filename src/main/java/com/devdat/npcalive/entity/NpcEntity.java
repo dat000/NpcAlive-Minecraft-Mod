@@ -1,5 +1,6 @@
 package com.devdat.npcalive.entity;
 
+import com.devdat.npcalive.entity.ia.FollowPlayerGoal;
 import com.devdat.npcalive.network.OpenNpcGuiPacket;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -28,14 +29,24 @@ import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.DifficultyInstance;
-import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 public class NpcEntity extends PathfinderMob {
+    private int interactionPauseTimer = 0;
     private static final EntityDataAccessor<String> DATA_NPC_TITLE = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Integer> DATA_NPC_VARIANT = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_NPC_GENDER = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_FRIENDSHIP = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_NPC_BEHAVIOR = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
+    public enum NpcBehavior {
+        WANDER,
+        FOLLOW,
+        STAY;
 
+        public NpcBehavior next() {
+            return values()[(this.ordinal() + 1) % values().length];
+        }
+    }
     public enum NpcGender {
         MALE,
         FEMALE;
@@ -48,6 +59,10 @@ public class NpcEntity extends PathfinderMob {
     public NpcEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
         this.setCustomNameVisible(true);
+        // Permitir que el navegador considere las puertas como caminos válidos
+        if (this.getNavigation() instanceof net.minecraft.world.entity.ai.navigation.GroundPathNavigation groundNav) {
+            groundNav.setCanOpenDoors(true);
+        }
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -61,15 +76,47 @@ public class NpcEntity extends PathfinderMob {
     @Override
     protected void registerGoals() {
         super.registerGoals();
+
         this.goalSelector.addGoal(0, new FloatGoal(this));
-        this.goalSelector.addGoal(1, new RandomStrollGoal(this, 1.0D));
-        this.goalSelector.addGoal(2, new LookAtPlayerGoal(this, Player.class, 8.0F));
-        this.goalSelector.addGoal(3, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(1, new FollowPlayerGoal(this, 1.2D, 4.0F, 16.0F)); // Activo solo si está en FOLLOW
+        this.goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F));
+        this.goalSelector.addGoal(4, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.OpenDoorGoal(this, true)); // <-- Permite abrir y cerrar puertas
+
+        this.goalSelector.addGoal(2, new RandomStrollGoal(this, 1.0D) {
+            @Override
+            public boolean canUse() {
+                return !NpcEntity.this.isInteracting() && NpcEntity.this.getBehavior() == NpcBehavior.WANDER && super.canUse();
+            }
+        });
+
+        this.goalSelector.addGoal(2, new RandomStrollGoal(this, 1.0D) {
+            @Override
+            public boolean canUse() {
+                return NpcEntity.this.getBehavior() == NpcBehavior.WANDER && super.canUse();
+            }
+        });
+    }
+
+    @Override
+    public void aiStep() {
+        super.aiStep();
+        if (this.interactionPauseTimer > 0) {
+            this.interactionPauseTimer--;
+            this.getNavigation().stop();
+        }
+    }
+
+    public boolean isInteracting() {
+        return this.interactionPauseTimer > 0;
     }
 
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (!this.level().isClientSide() && player instanceof ServerPlayer serverPlayer) {
+            this.interactionPauseTimer = 100; // Pausa por 5 segundos
+            this.getNavigation().stop();
+            this.getLookControl().setLookAt(player, 30.0F, 30.0F);
 
             int entityId = this.getId();
             String npcTitle = this.getNpcTitle();
@@ -114,6 +161,8 @@ public class NpcEntity extends PathfinderMob {
         builder.define(DATA_NPC_TITLE, "");
         builder.define(DATA_NPC_VARIANT, 0);
         builder.define(DATA_NPC_GENDER, 0);
+        builder.define(DATA_FRIENDSHIP, 0);
+        builder.define(DATA_NPC_BEHAVIOR, NpcBehavior.WANDER.ordinal()); // Empieza vagando por defecto
     }
 
     @Override
@@ -122,6 +171,8 @@ public class NpcEntity extends PathfinderMob {
         output.putString("NpcTitle", this.getNpcTitle());
         output.putInt("NpcVariant", this.getNpcVariant());
         output.putInt("NpcGender", this.getNpcGenderOrdinal());
+        output.putInt("Friendship", this.getFriendship());
+        output.putInt("NpcBehavior", this.getBehavior().ordinal());
     }
 
     @Override
@@ -130,6 +181,13 @@ public class NpcEntity extends PathfinderMob {
         input.getString("NpcTitle").ifPresent(this::setNpcTitle);
         input.getInt("NpcVariant").ifPresent(this::setNpcVariant);
         input.getInt("NpcGender").ifPresent(ordinal -> this.setNpcGender(NpcGender.values()[ordinal]));
+        input.getInt("Friendship").ifPresent(this::setFriendship);
+        input.getInt("NpcBehavior").ifPresent(ordinal -> {
+            NpcBehavior[] behaviors = NpcBehavior.values();
+            if (ordinal >= 0 && ordinal < behaviors.length) {
+                this.setBehavior(behaviors[ordinal]);
+            }
+        });
     }
 
     public String getNpcTitle() {
@@ -160,5 +218,27 @@ public class NpcEntity extends PathfinderMob {
 
     public void setNpcGender(NpcGender gender) {
         this.entityData.set(DATA_NPC_GENDER, gender.ordinal());
+    }
+
+    public int getFriendship() {
+        return this.entityData.get(DATA_FRIENDSHIP);
+    }
+
+    public void setFriendship(int friendship) {
+        this.entityData.set(DATA_FRIENDSHIP, friendship);
+    }
+
+    public void addFriendship(int amount) {
+        this.setFriendship(this.getFriendship() + amount);
+    }
+
+    public NpcBehavior getBehavior() {
+        int ordinal = this.entityData.get(DATA_NPC_BEHAVIOR);
+        NpcBehavior[] values = NpcBehavior.values();
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : NpcBehavior.WANDER;
+    }
+
+    public void setBehavior(NpcBehavior behavior) {
+        this.entityData.set(DATA_NPC_BEHAVIOR, behavior.ordinal());
     }
 }
