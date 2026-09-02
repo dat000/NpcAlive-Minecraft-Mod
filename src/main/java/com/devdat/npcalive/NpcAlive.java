@@ -2,6 +2,7 @@ package com.devdat.npcalive;
 
 import com.devdat.npcalive.entity.ModEntities;
 import com.devdat.npcalive.entity.NpcEntity;
+import com.devdat.npcalive.inventory.ModMenuTypes;
 import com.mojang.logging.LogUtils;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -17,6 +18,7 @@ public class NpcAlive {
     public NpcAlive(IEventBus modEventBus, ModContainer modContainer) {
         ModEntities.register(modEventBus);
         modEventBus.addListener(this::addEntityAttributes);
+        ModMenuTypes.register(modEventBus);
         LOGGER.info("Iniciando Npc Alive...");
     }
 

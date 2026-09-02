@@ -131,17 +131,10 @@ public class ServerPayloadHandler {
 
     // Nuevo metodo en la clase:
     private static void openNpcInventory(ServerPlayer player, NpcEntity npc) {
-        player.openMenu(new net.minecraft.world.MenuProvider() {
-            @Override
-            public Component getDisplayName() {
-                return Component.literal("Mochila de " + npc.getNpcTitle());
-            }
-
-            @Override
-            public net.minecraft.world.inventory.AbstractContainerMenu createMenu(int containerId, net.minecraft.world.entity.player.Inventory playerInventory, net.minecraft.world.entity.player.Player playerEntity) {
-                return net.minecraft.world.inventory.ChestMenu.threeRows(containerId, playerInventory, npc.getInventory());
-            }
-        });
+        player.openMenu(new net.minecraft.world.SimpleMenuProvider(
+                (containerId, inventory, playerEntity) -> new com.devdat.npcalive.inventory.NpcMenu(containerId, inventory, npc.getInventory()),
+                Component.literal("Inventario de " + npc.getNpcTitle())
+        ), buf -> buf.writeInt(npc.getId()));
     }
 
     private static void playFeedbackParticles(NpcEntity npc, net.minecraft.core.particles.ParticleOptions particle) {
