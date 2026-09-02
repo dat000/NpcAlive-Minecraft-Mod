@@ -18,6 +18,7 @@ public class ServerPayloadHandler {
                     case "GREET" -> handleGreet(serverPlayer, npc);
                     case "ROMANCE" -> handleRomance(serverPlayer, npc);
                     case "MEAN" -> handleMean(serverPlayer, npc);
+                    case "GIFT" -> handleGift(serverPlayer, npc);
                     case "TRANSACTIONS" -> handleTransactions(serverPlayer, npc);
                     default -> serverPlayer.sendSystemMessage(Component.literal("Acción desconocida: " + payload.actionName()));
                 }
@@ -74,6 +75,36 @@ public class ServerPayloadHandler {
         if (npc.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.ANGRY_VILLAGER,
                     npc.getX(), npc.getY() + 1.0D, npc.getZ(), 3, 0.5, 0.5, 0.5, 0.1);
+        }
+    }
+
+    private static void handleGift(ServerPlayer player, NpcEntity npc) {
+        net.minecraft.world.item.ItemStack heldItem = player.getMainHandItem();
+
+        if (heldItem.isEmpty()) {
+            player.sendSystemMessage(Component.literal("¡No tienes nada en la mano para regalar!"));
+            return;
+        }
+
+        if (heldItem.is(net.minecraft.world.item.Items.POPPY) || heldItem.is(net.minecraft.world.item.Items.DANDELION)) {
+            heldItem.shrink(1);
+            npc.addFriendship(15);
+            player.sendSystemMessage(Component.literal("¡A " + npc.getNpcTitle() + " le encantó la flor! +15 Amistad"));
+            playFeedbackParticles(npc, net.minecraft.core.particles.ParticleTypes.HAPPY_VILLAGER);
+        } else if (heldItem.is(net.minecraft.world.item.Items.DIAMOND)) {
+            heldItem.shrink(1);
+            npc.addRomance(25);
+            npc.addFriendship(10);
+            player.sendSystemMessage(Component.literal("¡" + npc.getNpcTitle() + " está deslumbrado por el diamante! +25 Romance"));
+            playFeedbackParticles(npc, net.minecraft.core.particles.ParticleTypes.HEART);
+        } else {
+            player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " mira el objeto con indiferencia y no le interesa."));
+        }
+    }
+
+    private static void playFeedbackParticles(NpcEntity npc, net.minecraft.core.particles.ParticleOptions particle) {
+        if (npc.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            serverLevel.sendParticles(particle, npc.getX(), npc.getY() + 1.0D, npc.getZ(), 5, 0.5, 0.5, 0.5, 0.1);
         }
     }
 

@@ -26,16 +26,15 @@ public class NpcDialogScreen extends Screen {
         super.init();
 
         int boxWidth = 220;
-        int boxHeight = 205; // Aumentamos la altura de la caja
+        int boxHeight = 225; // Altura ajustada para el nuevo botón
         int boxX = (this.width - boxWidth) / 2;
         int boxY = (this.height - boxHeight) / 2;
 
-        int startY = boxY + 80; // Bajamos el inicio de los botones para que no choquen con el texto
+        int startY = boxY + 80;
         int btnWidth = 190;
         int btnHeight = 20;
         int btnX = boxX + 15;
 
-        // Obtener el estado actual del comportamiento desde la entidad del cliente
         String behaviorText = "Vagar";
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != null) {
@@ -49,26 +48,29 @@ public class NpcDialogScreen extends Screen {
             }
         }
 
-        // Botones de acción ordenados verticalmente
         this.addRenderableWidget(Button.builder(Component.literal("Saludar"), button -> {
             sendAction("GREET");
         }).bounds(btnX, startY, btnWidth, btnHeight).build());
 
+        this.addRenderableWidget(Button.builder(Component.literal("Regalar"), button -> {
+            sendAction("GIFT");
+        }).bounds(btnX, startY + 24, btnWidth, btnHeight).build()); // <-- Botón de Regalar
+
         this.addRenderableWidget(Button.builder(Component.literal("Romance"), button -> {
             sendAction("ROMANCE");
-        }).bounds(btnX, startY + 24, btnWidth, btnHeight).build());
+        }).bounds(btnX, startY + 48, btnWidth, btnHeight).build());
 
         this.addRenderableWidget(Button.builder(Component.literal("Ofender"), button -> {
             sendAction("MEAN");
-        }).bounds(btnX, startY + 48, btnWidth, btnHeight).build());
+        }).bounds(btnX, startY + 72, btnWidth, btnHeight).build());
 
         this.addRenderableWidget(Button.builder(Component.literal("Comerciar"), button -> {
             sendAction("TRANSACTIONS");
-        }).bounds(btnX, startY + 72, btnWidth, btnHeight).build());
+        }).bounds(btnX, startY + 96, btnWidth, btnHeight).build());
 
         this.addRenderableWidget(Button.builder(Component.literal("Modo: " + behaviorText), button -> {
             sendAction("FOLLOW");
-        }).bounds(btnX, startY + 96, btnWidth, btnHeight).build());
+        }).bounds(btnX, startY + 120, btnWidth, btnHeight).build());
     }
 
     private void sendAction(String actionName) {
@@ -81,7 +83,7 @@ public class NpcDialogScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         int boxWidth = 220;
-        int boxHeight = 205; // Misa altura para que coincida con el fondo
+        int boxHeight = 225;
         int boxX = (this.width - boxWidth) / 2;
         int boxY = (this.height - boxHeight) / 2;
 
