@@ -1,5 +1,10 @@
 {
-  "itemGroup.npcalive": "Example Mod Tab",
-  "block.npcalive.example_block": "Example Block",
-  "item.npcalive.example_item": "Example Item"
+  "dialog.npcalive.greeting": "Hello! My name is %s",
+  "dialog.npcalive.gender": "Gender: %s",
+  "dialog.npcalive.friendship": "Friendship: %d",
+  "dialog.npcalive.romance": "Romance: %d",
+
+  "dialog.npcalive.mood.hostile": "Get away from me! I don't want to talk to you.",
+  "dialog.npcalive.mood.neutral": "Hello. What can I do for you today?",
+  "dialog.npcalive.mood.romantic": "It's so wonderful to see you, my love~"
 }

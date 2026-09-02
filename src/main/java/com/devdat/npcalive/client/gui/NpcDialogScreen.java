@@ -92,20 +92,23 @@ public class NpcDialogScreen extends Screen {
         // 2. Obtener los valores actuales desde la entidad del cliente
         int friendshipValue = 0;
         int romanceValue = 0;
+        String dialogueKey = "dialog.npcalive.mood.neutral";
+
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != null) {
             Entity entity = mc.level.getEntity(this.entityId);
             if (entity instanceof NpcEntity npc) {
                 friendshipValue = npc.getFriendship();
                 romanceValue = npc.getRomance();
+                dialogueKey = npc.getDialogueKey();
             }
         }
 
         // 3. Textos informativos con espacio adecuado arriba de los botones
-        graphics.text(this.font, Component.literal("¡Hola! Me llamo " + this.npcTitle), boxX + 15, boxY + 15, 0xFFFFFFFF, true);
-        graphics.text(this.font, Component.literal("Género: " + this.genderStr), boxX + 15, boxY + 30, 0xFFCCCCCC, true);
-        graphics.text(this.font, Component.literal("Amistad: " + friendshipValue), boxX + 15, boxY + 45, 0xFF55FF55, true);
-        graphics.text(this.font, Component.literal("Romance: " + romanceValue), boxX + 15, boxY + 60, 0xFFFF55FF, true);
+        graphics.text(this.font, Component.translatable(dialogueKey), boxX + 15, boxY + 15, 0xFFFFFFFF, true);
+        graphics.text(this.font, Component.translatable("dialog.npcalive.gender", this.genderStr), boxX + 15, boxY + 30, 0xFFCCCCCC, true);
+        graphics.text(this.font, Component.translatable("dialog.npcalive.friendship", friendshipValue), boxX + 15, boxY + 45, 0xFF55FF55, true);
+        graphics.text(this.font, Component.translatable("dialog.npcalive.romance", romanceValue), boxX + 15, boxY + 60, 0xFFFF55FF, true);
 
         // 4. Renderizar widgets encima
         super.extractRenderState(graphics, mouseX, mouseY, delta);

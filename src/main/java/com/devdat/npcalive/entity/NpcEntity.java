@@ -235,7 +235,7 @@ public class NpcEntity extends PathfinderMob {
     }
 
     public void addFriendship(int amount) {
-        this.setFriendship(this.getFriendship() + amount);
+        this.setFriendship(net.minecraft.util.Mth.clamp(this.getFriendship() + amount, -250, 250));
     }
 
     public NpcBehavior getBehavior() {
@@ -257,6 +257,16 @@ public class NpcEntity extends PathfinderMob {
     }
 
     public void addRomance(int amount) {
-        this.setRomance(this.getRomance() + amount);
+        this.setRomance(net.minecraft.util.Mth.clamp(this.getRomance() + amount, -250, 250));
+    }
+
+    public String getDialogueKey() {
+        if (this.getRomance() >= 50) {
+            return "dialog.npcalive.mood.romantic";
+        } else if (this.getFriendship() < 0 || this.getRomance() < -10) {
+            return "dialog.npcalive.mood.hostile";
+        } else {
+            return "dialog.npcalive.mood.neutral";
+        }
     }
 }
