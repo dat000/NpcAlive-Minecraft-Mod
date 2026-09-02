@@ -1,16 +1,17 @@
 package com.devdat.npcalive.client.model;
 
+import com.devdat.npcalive.NpcAlive;
+import com.devdat.npcalive.client.renderer.NpcRenderState;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.*;
-import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
 import net.minecraft.resources.Identifier;
 
-public class npc_model extends HumanoidModel<HumanoidRenderState> {
+public class npc_model extends HumanoidModel<NpcRenderState> {
 	public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(
-			Identifier.fromNamespaceAndPath("npcalive", "npc"), "main"
+			Identifier.fromNamespaceAndPath(NpcAlive.MOD_ID, "npc"), "main"
 	);
 
 	public npc_model(ModelPart root) {
@@ -34,7 +35,7 @@ public class npc_model extends HumanoidModel<HumanoidRenderState> {
 	}
 
 	@Override
-	public void setupAnim(HumanoidRenderState state) {
+	public void setupAnim(NpcRenderState state) {
 		super.setupAnim(state);
 	}
 }
