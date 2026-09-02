@@ -16,6 +16,8 @@ public class ServerPayloadHandler {
                 switch (payload.actionName()) {
                     case "FOLLOW" -> handleToggleFollow(serverPlayer, npc);
                     case "GREET" -> handleGreet(serverPlayer, npc);
+                    case "PROPOSE" -> handlePropose(serverPlayer, npc);
+                    case "INVENTORY" -> serverPlayer.sendSystemMessage(Component.literal("Abriendo inventario de " + npc.getNpcTitle() + "... (En desarrollo)"));
                     case "ROMANCE" -> handleRomance(serverPlayer, npc);
                     case "MEAN" -> handleMean(serverPlayer, npc);
                     case "GIFT" -> handleGift(serverPlayer, npc);
@@ -99,6 +101,31 @@ public class ServerPayloadHandler {
             playFeedbackParticles(npc, net.minecraft.core.particles.ParticleTypes.HEART);
         } else {
             player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " mira el objeto con indiferencia y no le interesa."));
+        }
+    }
+
+    private static void handlePropose(ServerPlayer serverPlayer, NpcEntity npc) {
+        if (npc.isMarried()) {
+            serverPlayer.sendSystemMessage(Component.literal("¡Ya estás casado con " + npc.getNpcTitle() + "!"));
+            return;
+        }
+
+        if (npc.getRomance() < 200) {
+            serverPlayer.sendSystemMessage(Component.literal(npc.getNpcTitle() + " piensa que aún es muy pronto para dar este paso. (Requiere 200 de Romance)"));
+            return;
+        }
+
+        net.minecraft.world.item.ItemStack heldItem = serverPlayer.getMainHandItem();
+        if (heldItem.is(net.minecraft.world.item.Items.DIAMOND)) {
+            heldItem.shrink(1);
+            npc.setMarried(true);
+            serverPlayer.sendSystemMessage(Component.literal("¡" + npc.getNpcTitle() + " ha aceptado tu propuesta! Ahora están casados."));
+
+            if (npc.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.HEART, npc.getX(), npc.getY() + 1.0D, npc.getZ(), 10, 0.5, 0.5, 0.5, 0.2);
+            }
+        } else {
+            serverPlayer.sendSystemMessage(Component.literal("Necesitas sostener un Diamante en la mano para proponer matrimonio."));
         }
     }
 

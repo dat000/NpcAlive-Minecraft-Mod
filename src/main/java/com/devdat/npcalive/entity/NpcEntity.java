@@ -40,6 +40,8 @@ public class NpcEntity extends PathfinderMob {
     private static final EntityDataAccessor<Integer> DATA_NPC_GENDER = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_FRIENDSHIP = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_NPC_BEHAVIOR = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> DATA_IS_MARRIED =
+            net.minecraft.network.syncher.SynchedEntityData.defineId(NpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
 
     public enum NpcBehavior {
         WANDER,
@@ -167,6 +169,7 @@ public class NpcEntity extends PathfinderMob {
         builder.define(DATA_FRIENDSHIP, 0);
         builder.define(DATA_NPC_BEHAVIOR, NpcBehavior.WANDER.ordinal()); // Empieza vagando por defecto
         builder.define(DATA_ROMANCE, 0);
+        builder.define(DATA_IS_MARRIED, false);
     }
 
     @Override
@@ -178,6 +181,7 @@ public class NpcEntity extends PathfinderMob {
         output.putInt("Friendship", this.getFriendship());
         output.putInt("NpcBehavior", this.getBehavior().ordinal());
         output.putInt("Romance", this.getRomance());
+        output.putBoolean("IsMarried", this.isMarried());
     }
 
     @Override
@@ -194,6 +198,7 @@ public class NpcEntity extends PathfinderMob {
             }
         });
         input.getInt("Romance").ifPresent(this::setRomance);
+        this.setMarried(input.getBooleanOr("IsMarried", false));
     }
 
     public String getNpcTitle() {
@@ -268,5 +273,13 @@ public class NpcEntity extends PathfinderMob {
         } else {
             return "dialog.npcalive.mood.neutral";
         }
+    }
+
+    public boolean isMarried() {
+        return this.entityData.get(DATA_IS_MARRIED);
+    }
+
+    public void setMarried(boolean married) {
+        this.entityData.set(DATA_IS_MARRIED, married);
     }
 }

@@ -26,7 +26,7 @@ public class NpcDialogScreen extends Screen {
         super.init();
 
         int boxWidth = 220;
-        int boxHeight = 225; // Altura ajustada para el nuevo botón
+        int boxHeight = 255; // Aumentamos la altura para el 7mo botón
         int boxX = (this.width - boxWidth) / 2;
         int boxY = (this.height - boxHeight) / 2;
 
@@ -36,6 +36,8 @@ public class NpcDialogScreen extends Screen {
         int btnX = boxX + 15;
 
         String behaviorText = "Vagar";
+        boolean isMarried = false; // <-- Nueva variable para saber el estado
+
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != null) {
             Entity entity = mc.level.getEntity(this.entityId);
@@ -45,6 +47,7 @@ public class NpcDialogScreen extends Screen {
                     case FOLLOW -> "Seguir";
                     case STAY -> "Esperar";
                 };
+                isMarried = npc.isMarried(); // <-- Obtenemos el estado civil
             }
         }
 
@@ -54,7 +57,7 @@ public class NpcDialogScreen extends Screen {
 
         this.addRenderableWidget(Button.builder(Component.literal("Regalar"), button -> {
             sendAction("GIFT");
-        }).bounds(btnX, startY + 24, btnWidth, btnHeight).build()); // <-- Botón de Regalar
+        }).bounds(btnX, startY + 24, btnWidth, btnHeight).build());
 
         this.addRenderableWidget(Button.builder(Component.literal("Romance"), button -> {
             sendAction("ROMANCE");
@@ -71,6 +74,14 @@ public class NpcDialogScreen extends Screen {
         this.addRenderableWidget(Button.builder(Component.literal("Modo: " + behaviorText), button -> {
             sendAction("FOLLOW");
         }).bounds(btnX, startY + 120, btnWidth, btnHeight).build());
+
+        // EL BOTÓN CONDICIONAL: Proponer o Inventario
+        Component specialButtonText = isMarried ? Component.literal("Inventario") : Component.literal("Proponer");
+        String specialAction = isMarried ? "INVENTORY" : "PROPOSE";
+
+        this.addRenderableWidget(Button.builder(specialButtonText, button -> {
+            sendAction(specialAction);
+        }).bounds(btnX, startY + 144, btnWidth, btnHeight).build());
     }
 
     private void sendAction(String actionName) {
@@ -83,7 +94,7 @@ public class NpcDialogScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         int boxWidth = 220;
-        int boxHeight = 225;
+        int boxHeight = 255;
         int boxX = (this.width - boxWidth) / 2;
         int boxY = (this.height - boxHeight) / 2;
 
