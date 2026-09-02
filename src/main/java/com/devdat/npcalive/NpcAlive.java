@@ -23,4 +23,5 @@ public class NpcAlive {
     private void addEntityAttributes(EntityAttributeCreationEvent event) {
         event.put(ModEntities.NPC.get(), NpcEntity.createAttributes().build());
     }
+
 }

@@ -1,8 +1,12 @@
 package com.devdat.npcalive.entity;
 
+import com.devdat.npcalive.network.OpenNpcGuiPacket;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -24,6 +28,7 @@ import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.DifficultyInstance;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 public class NpcEntity extends PathfinderMob {
@@ -60,6 +65,21 @@ public class NpcEntity extends PathfinderMob {
         this.goalSelector.addGoal(1, new RandomStrollGoal(this, 1.0D));
         this.goalSelector.addGoal(2, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(3, new RandomLookAroundGoal(this));
+    }
+
+    @Override
+    public InteractionResult mobInteract(Player player, InteractionHand hand) {
+        if (!this.level().isClientSide() && player instanceof ServerPlayer serverPlayer) {
+
+            int entityId = this.getId();
+            String npcTitle = this.getNpcTitle();
+            String genderStr = (this.getNpcGender() == NpcGender.MALE) ? "male" : "female";
+
+            serverPlayer.connection.send(new OpenNpcGuiPacket(entityId, npcTitle, genderStr));
+
+            return InteractionResult.SUCCESS;
+        }
+        return super.mobInteract(player, hand);
     }
 
     @Nullable
