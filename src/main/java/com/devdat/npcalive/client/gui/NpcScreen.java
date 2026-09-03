@@ -13,7 +13,8 @@ public class NpcScreen extends AbstractContainerScreen<NpcMenu> {
 
     public NpcScreen(NpcMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
-        this.inventoryLabelY = 90; // Etiqueta del inventario del jugador bien posicionada
+        this.inventoryLabelY = 90;
+        this.titleLabelY = 3;
     }
 
     @Override
@@ -22,8 +23,8 @@ public class NpcScreen extends AbstractContainerScreen<NpcMenu> {
         int y = (this.height - this.imageHeight) / 2;
 
         // 1. Panel de fondo general que abarca toda la interfaz
-        graphics.fill(x, y, x + this.imageWidth, y + panelHeight, 0xCC111111);
-        graphics.outline(x, y, this.imageWidth, panelHeight, 0xFF555555);
+        graphics.fill(x, y, x + this.imageWidth, y + panelHeight, 0xFFC6C6C6);
+        graphics.outline(x, y, this.imageWidth, panelHeight, 0xFF373737);
 
         // 2. Fondos de los slots del NPC (Armadura, armas y almacenamiento)
         for (int i = 0; i < 4; ++i) {
@@ -33,9 +34,10 @@ public class NpcScreen extends AbstractContainerScreen<NpcMenu> {
         drawSlotBackground(graphics, x + 26, y + 32);
         drawSlotBackground(graphics, x + 26, y + 50);
 
+        //  Mochila del NPC
         for (int i = 0; i < 2; ++i) {
             for (int j = 0; j < 4; ++j) {
-                drawSlotBackground(graphics, x + 86 + (j * 18), y + 32 + (i * 18));
+                drawSlotBackground(graphics, x + 80 + (j * 18), y + 32 + (i * 18));
             }
         }
 
@@ -55,8 +57,20 @@ public class NpcScreen extends AbstractContainerScreen<NpcMenu> {
     }
 
     private void drawSlotBackground(GuiGraphicsExtractor graphics, int posX, int posY) {
-        graphics.fill(posX, posY, posX + 16, posY + 16, 0xFF8B8B8B);
-        graphics.fill(posX + 1, posY + 1, posX + 15, posY + 15, 0xFF373737);
+        // Desplazamos -1 para centrar el cuadro de 18x18 alrededor del ítem de 16x16
+        int startX = posX - 1;
+        int startY = posY - 1;
+
+        // 1. Fondo central del slot (Gris medio clásico)
+        graphics.fill(startX, startY, startX + 18, startY + 18, 0xFF8B8B8B);
+
+        // 2. Sombra 3D (Borde superior e izquierdo - Gris oscuro)
+        graphics.fill(startX, startY, startX + 17, startY + 1, 0xFF373737); // Línea superior
+        graphics.fill(startX, startY, startX + 1, startY + 17, 0xFF373737); // Línea izquierda
+
+        // 3. Brillo 3D (Borde inferior y derecho - Blanco puro)
+        graphics.fill(startX, startY + 17, startX + 18, startY + 18, 0xFFFFFFFF); // Línea inferior
+        graphics.fill(startX + 17, startY, startX + 18, startY + 18, 0xFFFFFFFF); // Línea derecha
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.devdat.npcalive.inventory;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.Container;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -22,22 +23,37 @@ public class NpcMenu extends AbstractContainerMenu {
         this.npcContainer = npcContainer;
         npcContainer.startOpen(playerInventory.player);
 
-        // 1. Slots de Armadura (Columna en x = 8)
-        for (int i = 0; i < 3; ++i) { // Nota: ajusta si necesitas los 4
-            // Dejamos los 4 slots de armadura como estaban:
-        }
+        // 1. Slots de Armadura (Ordenados visualmente de arriba a abajo, pero apuntando al índice exacto del NpcEntity)
+        // NpcEntity espera: HEAD=1, CHEST=2, LEGS=3, FEET=4
+        EquipmentSlot[] armorSlots = new EquipmentSlot[] {
+                EquipmentSlot.HEAD,   // Visual Arriba -> Índice 1 en NpcEntity
+                EquipmentSlot.CHEST,  // Visual Segundo -> Índice 2 en NpcEntity
+                EquipmentSlot.LEGS,   // Visual Tercero -> Índice 3 en NpcEntity
+                EquipmentSlot.FEET    // Visual Abajo -> Índice 4 en NpcEntity
+        };
+
+        int[] entityIndices = new int[] { 1, 2, 3, 4 };
+
         for (int i = 0; i < 4; ++i) {
-            this.addSlot(new Slot(npcContainer, i, 8, 14 + i * 18));
+            EquipmentSlot slotType = armorSlots[i];
+            int containerIndex = entityIndices[i];
+
+            this.addSlot(new Slot(npcContainer, containerIndex, 8, 14 + (i * 18)) {
+                @Override
+                public boolean mayPlace(ItemStack stack) {
+                    return stack.canEquip(slotType, playerInventory.player);
+                }
+            });
         }
 
-        // 2. Arma principal y secundaria
-        this.addSlot(new Slot(npcContainer, 4, 26, 32));
-        this.addSlot(new Slot(npcContainer, 5, 26, 50));
+        // 2. Arma principal y secundaria (Mapeadas a los índices 0 y 5 del NpcEntity)
+        this.addSlot(new Slot(npcContainer, 0, 26, 32)); // Mainhand (Mano principal)
+        this.addSlot(new Slot(npcContainer, 5, 26, 50)); // Offhand (Mano secundaria)
 
-        // 3. Inventario extra del NPC (2 filas de 4 slots, bajado 1 slot y movido 2 a la derecha)
+        // 3. Inventario extra del NPC (Mochila de 2x4, empieza desde el índice 6 en adelante)
         for (int i = 0; i < 2; ++i) {
             for (int j = 0; j < 4; ++j) {
-                this.addSlot(new Slot(npcContainer, 6 + j + i * 4, 86 + j * 18, 32 + i * 18));
+                this.addSlot(new Slot(npcContainer, 6 + j + (i * 4), 80 + (j * 18), 32 + (i * 18)));
             }
         }
 
