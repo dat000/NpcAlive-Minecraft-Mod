@@ -1,6 +1,7 @@
 package com.devdat.npcalive.network;
 
 import com.devdat.npcalive.entity.NpcEntity;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -43,7 +44,6 @@ public class ServerPayloadHandler {
             case STAY -> player.sendSystemMessage(Component.literal(npc.getNpcTitle() + " se quedará esperando aquí."));
         }
     }
-
 
     private static void handleGreet(ServerPlayer player, NpcEntity npc) {
         npc.addFriendship(5); // Suma 5 puntos
@@ -129,10 +129,10 @@ public class ServerPayloadHandler {
         }
     }
 
-    // Nuevo metodo en la clase:
     private static void openNpcInventory(ServerPlayer player, NpcEntity npc) {
         player.openMenu(new net.minecraft.world.SimpleMenuProvider(
-                (containerId, inventory, playerEntity) -> new com.devdat.npcalive.inventory.NpcMenu(containerId, inventory, npc.getInventory()),
+                // Línea corregida:
+                (containerId, inventory, playerEntity) -> new com.devdat.npcalive.inventory.NpcMenu(containerId, inventory, npc),
                 Component.literal("Inventario de " + npc.getNpcTitle())
         ), buf -> buf.writeInt(npc.getId()));
     }
@@ -141,6 +141,31 @@ public class ServerPayloadHandler {
         if (npc.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             serverLevel.sendParticles(particle, npc.getX(), npc.getY() + 1.0D, npc.getZ(), 5, 0.5, 0.5, 0.5, 0.1);
         }
+    }
+
+    public static void handleSetNpcHome(final SetNpcHomePacket data, final net.neoforged.neoforge.network.handling.IPayloadContext context) {
+        // Ejecutamos la tarea en el hilo principal del servidor para evitar problemas de concurrencia
+        context.enqueueWork(() -> {
+            net.minecraft.world.entity.player.Player player = context.player();
+            net.minecraft.world.level.Level level = player.level();
+
+            // Buscamos a la entidad usando el ID que nos mandó el paquete
+            net.minecraft.world.entity.Entity entity = level.getEntity(data.entityId());
+
+            if (entity instanceof com.devdat.npcalive.entity.NpcEntity npc) {
+                BlockPos currentPos = npc.blockPosition();
+                npc.setHomePos(currentPos);
+
+                // Imprime en la consola de IntelliJ/Eclipse para ver qué coordenadas reales guardó
+                com.mojang.logging.LogUtils.getLogger().info("NPC Home set to: {} at entity pos: {}", currentPos, npc.position());
+
+                if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                    serverPlayer.sendSystemMessage(
+                            net.minecraft.network.chat.Component.literal("🏠 " + npc.getNpcTitle() + " ha establecido su hogar en: " + currentPos.toShortString())
+                    );
+                }
+            }
+        });
     }
 
     private static void handleTransactions(ServerPlayer player, NpcEntity npc) {

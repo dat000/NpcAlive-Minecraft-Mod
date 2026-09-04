@@ -1,6 +1,7 @@
 package com.devdat.npcalive.entity;
 
 import com.devdat.npcalive.entity.ia.FollowPlayerGoal;
+import com.devdat.npcalive.entity.ia.ReturnHomeGoal;
 import com.devdat.npcalive.network.OpenNpcGuiPacket;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -35,7 +36,7 @@ public class NpcEntity extends PathfinderMob {
     private int interactionPauseTimer = 0;
 
     private final net.minecraft.world.SimpleContainer inventory = new net.minecraft.world.SimpleContainer(27);
-
+    private net.minecraft.core.BlockPos homePosition = null;
     private static final EntityDataAccessor<Integer> DATA_ROMANCE = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<String> DATA_NPC_TITLE = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Integer> DATA_NPC_VARIANT = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
@@ -86,21 +87,33 @@ public class NpcEntity extends PathfinderMob {
 
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new FollowPlayerGoal(this, 1.2D, 4.0F, 16.0F)); // Activo solo si está en FOLLOW
+        this.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.OpenDoorGoal(this, true)); // Permite abrir y cerrar puertas
+
+        // Prioridad alta para que regrese a casa cuando apliquen las condiciones
+        this.goalSelector.addGoal(2, new ReturnHomeGoal(this, 1.0D));
+
         this.goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(4, new RandomLookAroundGoal(this));
-        this.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.OpenDoorGoal(this, true)); // <-- Permite abrir y cerrar puertas
 
-        this.goalSelector.addGoal(2, new RandomStrollGoal(this, 1.0D) {
+        // Unificamos y optimizamos los dos RandomStrollGoal en uno solo con la regla nocturna
+        this.goalSelector.addGoal(5, new RandomStrollGoal(this, 1.0D) {
             @Override
             public boolean canUse() {
-                return !NpcEntity.this.isInteracting() && NpcEntity.this.getBehavior() == NpcBehavior.WANDER && super.canUse();
-            }
-        });
+                if (NpcEntity.this.isInteracting() || NpcEntity.this.getBehavior() != NpcBehavior.WANDER) {
+                    return false;
+                }
 
-        this.goalSelector.addGoal(2, new RandomStrollGoal(this, 1.0D) {
-            @Override
-            public boolean canUse() {
-                return NpcEntity.this.getBehavior() == NpcBehavior.WANDER && super.canUse();
+                // Si es de noche y tiene casa registrada, limitamos el paseo al interior/cercanías (radio de 6 bloques)
+                if (NpcEntity.this.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    long timeOfDay = serverLevel.getDefaultClockTime() % 24000;
+                    boolean isNight = timeOfDay >= 13000 && timeOfDay < 23000;
+
+                    if (isNight && NpcEntity.this.getHomePos() != null) {
+                        return NpcEntity.this.blockPosition().distSqr(NpcEntity.this.getHomePos()) <= 36.0D && super.canUse();
+                    }
+                }
+
+                return super.canUse();
             }
         });
     }
@@ -199,6 +212,15 @@ public class NpcEntity extends PathfinderMob {
         equipmentList.set(5, this.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND));
 
         net.minecraft.world.ContainerHelper.saveAllItems(output.child("NpcEquipment"), equipmentList);
+
+        if (this.homePosition != null) {
+            output.putBoolean("HasHome", true);
+            output.putInt("HomeX", this.homePosition.getX());
+            output.putInt("HomeY", this.homePosition.getY());
+            output.putInt("HomeZ", this.homePosition.getZ());
+        } else {
+            output.putBoolean("HasHome", false);
+        }
     }
 
     @Override
@@ -235,6 +257,17 @@ public class NpcEntity extends PathfinderMob {
             this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, equipmentList.get(4));
             this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, equipmentList.get(5));
         });
+
+        if (input.getBooleanOr("HasHome", false)) {
+            input.getInt("HomeX").ifPresent(x -> {
+                input.getInt("HomeY").ifPresent(y -> {
+                    input.getInt("HomeZ").ifPresent(z -> {
+                        this.setHomePos(new net.minecraft.core.BlockPos(x, y, z));
+                    });
+                });
+            });
+        }
+
     }
 
     public String getNpcTitle() {
@@ -340,6 +373,16 @@ public class NpcEntity extends PathfinderMob {
             return this.inventory.getItem(targetSlot);
         }
         return super.getItemBySlot(slot);
+    }
+
+    public net.minecraft.core.BlockPos getHomePos() {
+        return this.homePosition;
+    }
+
+    public void setHomePos(net.minecraft.core.BlockPos pos) {
+        this.homePosition = pos;
+        // Nota: La distancia máxima y la orden de "volver a casa"
+        // las vamos a programar nosotros mismos en un Goal (IA) en el siguiente paso.
     }
 
     @Override

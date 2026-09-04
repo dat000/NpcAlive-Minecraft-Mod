@@ -2,6 +2,7 @@ package com.devdat.npcalive.client.gui;
 
 import com.devdat.npcalive.entity.NpcEntity;
 import com.devdat.npcalive.network.PerformNpcActionPacket;
+import com.devdat.npcalive.network.SetNpcHomePacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -26,7 +27,7 @@ public class NpcDialogScreen extends Screen {
         super.init();
 
         int boxWidth = 220;
-        int boxHeight = 255; // Aumentamos la altura para el 7mo botón
+        int boxHeight = 285; // Altura ajustada para alojar todos los botones
         int boxX = (this.width - boxWidth) / 2;
         int boxY = (this.height - boxHeight) / 2;
 
@@ -36,7 +37,7 @@ public class NpcDialogScreen extends Screen {
         int btnX = boxX + 15;
 
         String behaviorText = "Vagar";
-        boolean isMarried = false; // <-- Nueva variable para saber el estado
+        boolean isMarried = false;
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != null) {
@@ -47,7 +48,7 @@ public class NpcDialogScreen extends Screen {
                     case FOLLOW -> "Seguir";
                     case STAY -> "Esperar";
                 };
-                isMarried = npc.isMarried(); // <-- Obtenemos el estado civil
+                isMarried = npc.isMarried();
             }
         }
 
@@ -71,9 +72,17 @@ public class NpcDialogScreen extends Screen {
             sendAction("TRANSACTIONS");
         }).bounds(btnX, startY + 96, btnWidth, btnHeight).build());
 
+        // Botón de Establecer Hogar integrado en el menú principal
+        this.addRenderableWidget(Button.builder(Component.literal("Establecer Hogar"), button -> {
+            if (Minecraft.getInstance().getConnection() != null) {
+                Minecraft.getInstance().getConnection().send(new SetNpcHomePacket(this.entityId));
+            }
+            this.onClose();
+        }).bounds(btnX, startY + 120, btnWidth, btnHeight).build());
+
         this.addRenderableWidget(Button.builder(Component.literal("Modo: " + behaviorText), button -> {
             sendAction("FOLLOW");
-        }).bounds(btnX, startY + 120, btnWidth, btnHeight).build());
+        }).bounds(btnX, startY + 144, btnWidth, btnHeight).build());
 
         // EL BOTÓN CONDICIONAL: Proponer o Inventario
         Component specialButtonText = isMarried ? Component.literal("Inventario") : Component.literal("Proponer");
@@ -81,7 +90,7 @@ public class NpcDialogScreen extends Screen {
 
         this.addRenderableWidget(Button.builder(specialButtonText, button -> {
             sendAction(specialAction);
-        }).bounds(btnX, startY + 144, btnWidth, btnHeight).build());
+        }).bounds(btnX, startY + 168, btnWidth, btnHeight).build());
     }
 
     private void sendAction(String actionName) {
@@ -94,7 +103,7 @@ public class NpcDialogScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         int boxWidth = 220;
-        int boxHeight = 255;
+        int boxHeight = 285;
         int boxX = (this.width - boxWidth) / 2;
         int boxY = (this.height - boxHeight) / 2;
 
@@ -117,7 +126,7 @@ public class NpcDialogScreen extends Screen {
             }
         }
 
-        // 3. Textos informativos con espacio adecuado arriba de los botones
+        // 3. Textos informativos
         graphics.text(this.font, Component.translatable(dialogueKey), boxX + 15, boxY + 15, 0xFFFFFFFF, true);
         graphics.text(this.font, Component.translatable("dialog.npcalive.gender", this.genderStr), boxX + 15, boxY + 30, 0xFFCCCCCC, true);
         graphics.text(this.font, Component.translatable("dialog.npcalive.friendship", friendshipValue), boxX + 15, boxY + 45, 0xFF55FF55, true);

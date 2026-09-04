@@ -1,5 +1,6 @@
 package com.devdat.npcalive.inventory;
 
+import com.devdat.npcalive.entity.NpcEntity;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.Container;
@@ -12,24 +13,34 @@ import net.minecraft.world.item.ItemStack;
 
 public class NpcMenu extends AbstractContainerMenu {
     private final Container npcContainer;
+    private final NpcEntity npc;
 
+    // Constructor para el cliente (lee el ID de la entidad enviado desde el servidor)
     public NpcMenu(int containerId, Inventory playerInventory, FriendlyByteBuf extraData) {
-        this(containerId, playerInventory, new SimpleContainer(15));
+        this(containerId, playerInventory, getEntityFromBuffer(playerInventory, extraData));
     }
 
-    public NpcMenu(int containerId, Inventory playerInventory, Container npcContainer) {
-        super(ModMenuTypes.NPC_MENU.get(), containerId);
-        checkContainerSize(npcContainer, 15);
-        this.npcContainer = npcContainer;
-        npcContainer.startOpen(playerInventory.player);
+    private static NpcEntity getEntityFromBuffer(Inventory playerInventory, FriendlyByteBuf extraData) {
+        int entityId = extraData.readInt();
+        net.minecraft.world.entity.Entity entity = playerInventory.player.level().getEntity(entityId);
+        return entity instanceof NpcEntity foundNpc ? foundNpc : null;
+    }
 
-        // 1. Slots de Armadura (Ordenados visualmente de arriba a abajo, pero apuntando al índice exacto del NpcEntity)
-        // NpcEntity espera: HEAD=1, CHEST=2, LEGS=3, FEET=4
+    // Constructor principal que recibe la entidad NPC
+    public NpcMenu(int containerId, Inventory playerInventory, NpcEntity npc) {
+        super(ModMenuTypes.NPC_MENU.get(), containerId);
+        this.npc = npc;
+        this.npcContainer = npc != null ? npc.getInventory() : new SimpleContainer(15);
+
+        checkContainerSize(this.npcContainer, 15);
+        this.npcContainer.startOpen(playerInventory.player);
+
+        // 1. Slots de Armadura (HEAD=1, CHEST=2, LEGS=3, FEET=4)
         EquipmentSlot[] armorSlots = new EquipmentSlot[] {
-                EquipmentSlot.HEAD,   // Visual Arriba -> Índice 1 en NpcEntity
-                EquipmentSlot.CHEST,  // Visual Segundo -> Índice 2 en NpcEntity
-                EquipmentSlot.LEGS,   // Visual Tercero -> Índice 3 en NpcEntity
-                EquipmentSlot.FEET    // Visual Abajo -> Índice 4 en NpcEntity
+                EquipmentSlot.HEAD,
+                EquipmentSlot.CHEST,
+                EquipmentSlot.LEGS,
+                EquipmentSlot.FEET
         };
 
         int[] entityIndices = new int[] { 1, 2, 3, 4 };
@@ -46,11 +57,11 @@ public class NpcMenu extends AbstractContainerMenu {
             });
         }
 
-        // 2. Arma principal y secundaria (Mapeadas a los índices 0 y 5 del NpcEntity)
-        this.addSlot(new Slot(npcContainer, 0, 26, 32)); // Mainhand (Mano principal)
-        this.addSlot(new Slot(npcContainer, 5, 26, 50)); // Offhand (Mano secundaria)
+        // 2. Arma principal y secundaria (Índices 0 y 5)
+        this.addSlot(new Slot(npcContainer, 0, 26, 32)); // Mainhand
+        this.addSlot(new Slot(npcContainer, 5, 26, 50)); // Offhand
 
-        // 3. Inventario extra del NPC (Mochila de 2x4, empieza desde el índice 6 en adelante)
+        // 3. Inventario extra del NPC (Mochila de 2x4, desde el índice 6)
         for (int i = 0; i < 2; ++i) {
             for (int j = 0; j < 4; ++j) {
                 this.addSlot(new Slot(npcContainer, 6 + j + (i * 4), 80 + (j * 18), 32 + (i * 18)));
@@ -96,12 +107,16 @@ public class NpcMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return this.npcContainer.stillValid(player);
+        return this.npc != null && this.npc.isAlive() && this.npc.distanceToSqr(player) < 64.0D;
     }
 
     @Override
     public void removed(Player player) {
         super.removed(player);
         this.npcContainer.stopOpen(player);
+    }
+
+    public NpcEntity getNpc() {
+        return this.npc;
     }
 }

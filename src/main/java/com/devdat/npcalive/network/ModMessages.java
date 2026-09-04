@@ -13,7 +13,7 @@ public class ModMessages {
     public static void register(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1.0");
 
-        // Paquete existente (Servidor a Cliente)
+        // 1. Paquete existente (Servidor a Cliente)
         registrar.playToClient(
                 OpenNpcGuiPacket.TYPE,
                 OpenNpcGuiPacket.STREAM_CODEC,
@@ -22,12 +22,21 @@ public class ModMessages {
                 })
         );
 
-        // Nuevo paquete (Cliente a Servidor)
+        // 2. Paquete existente (Cliente a Servidor)
         registrar.playToServer(
                 PerformNpcActionPacket.TYPE,
                 PerformNpcActionPacket.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> {
                     ServerPayloadHandler.handlePerformNpcAction(payload, context);
+                })
+        );
+
+        // 3. NUEVO PAQUETE para el Set Home (Cliente a Servidor)
+        registrar.playToServer(
+                SetNpcHomePacket.TYPE,
+                SetNpcHomePacket.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    ServerPayloadHandler.handleSetNpcHome(payload, context);
                 })
         );
     }

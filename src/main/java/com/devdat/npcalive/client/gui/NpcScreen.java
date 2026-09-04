@@ -1,7 +1,9 @@
 package com.devdat.npcalive.client.gui;
 
 import com.devdat.npcalive.inventory.NpcMenu;
+import com.devdat.npcalive.network.SetNpcHomePacket;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -15,6 +17,27 @@ public class NpcScreen extends AbstractContainerScreen<NpcMenu> {
         super(menu, playerInventory, title);
         this.inventoryLabelY = 90;
         this.titleLabelY = 3;
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+
+        int x = (this.width - this.imageWidth) / 2;
+        int y = (this.height - this.imageHeight) / 2;
+
+        // Agregamos el botón de "Establecer Hogar"
+        this.addRenderableWidget(Button.builder(Component.literal("Establecer Hogar"), button -> {
+                    int entityId = this.menu.getNpc().getId();
+
+                    // Envío seguro del paquete al servidor
+                    if (net.minecraft.client.Minecraft.getInstance().getConnection() != null) {
+                        net.minecraft.client.Minecraft.getInstance().getConnection().send(new SetNpcHomePacket(entityId));
+                    }
+                })
+                .pos(x + 110, y + 68)
+                .size(90, 20)
+                .build());
     }
 
     @Override
