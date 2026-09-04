@@ -2,7 +2,9 @@ package com.devdat.npcalive.entity;
 
 import com.devdat.npcalive.entity.ia.FollowPlayerGoal;
 import com.devdat.npcalive.entity.ia.ReturnHomeGoal;
+import com.devdat.npcalive.entity.ia.SleepInBedGoal;
 import com.devdat.npcalive.network.OpenNpcGuiPacket;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -34,9 +36,10 @@ import org.jetbrains.annotations.Nullable;
 
 public class NpcEntity extends PathfinderMob {
     private int interactionPauseTimer = 0;
+    private BlockPos bedPosition = null;
+    private net.minecraft.core.BlockPos homePosition = null;
 
     private final net.minecraft.world.SimpleContainer inventory = new net.minecraft.world.SimpleContainer(27);
-    private net.minecraft.core.BlockPos homePosition = null;
     private static final EntityDataAccessor<Integer> DATA_ROMANCE = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<String> DATA_NPC_TITLE = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Integer> DATA_NPC_VARIANT = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
@@ -91,6 +94,8 @@ public class NpcEntity extends PathfinderMob {
 
         // Prioridad alta para que regrese a casa cuando apliquen las condiciones
         this.goalSelector.addGoal(2, new ReturnHomeGoal(this, 1.0D));
+        // Prioridad alta para que vaya a la cama de noche
+        this.goalSelector.addGoal(2, new SleepInBedGoal(this, 1.0D));
 
         this.goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(4, new RandomLookAroundGoal(this));
@@ -221,6 +226,15 @@ public class NpcEntity extends PathfinderMob {
         } else {
             output.putBoolean("HasHome", false);
         }
+
+        if (this.bedPosition != null) {
+            output.putBoolean("HasBed", true);
+            output.putInt("BedX", this.bedPosition.getX());
+            output.putInt("BedY", this.bedPosition.getY());
+            output.putInt("BedZ", this.bedPosition.getZ());
+        } else {
+            output.putBoolean("HasBed", false);
+        }
     }
 
     @Override
@@ -268,6 +282,15 @@ public class NpcEntity extends PathfinderMob {
             });
         }
 
+        if (input.getBooleanOr("HasBed", false)) {
+            input.getInt("BedX").ifPresent(x -> {
+                input.getInt("BedY").ifPresent(y -> {
+                    input.getInt("BedZ").ifPresent(z -> {
+                        this.setBedPos(new net.minecraft.core.BlockPos(x, y, z));
+                    });
+                });
+            });
+        }
     }
 
     public String getNpcTitle() {
@@ -401,6 +424,28 @@ public class NpcEntity extends PathfinderMob {
             this.inventory.setItem(targetSlot, stack);
         } else {
             super.setItemSlot(slot, stack);
+        }
+    }
+
+    public net.minecraft.core.BlockPos getBedPos() {
+        return this.bedPosition;
+    }
+
+    public void setBedPos(net.minecraft.core.BlockPos pos) {
+        this.bedPosition = pos;
+    }
+
+    @Override
+    public boolean isPushable() {
+        // Si el NPC está durmiendo, desactivamos la capacidad de ser empujado
+        return !this.isSleeping() && super.isPushable();
+    }
+
+    @Override
+    protected void doPush(net.minecraft.world.entity.Entity entity) {
+        // Evita que el NPC se desplace al chocar con otras entidades mientras duerme
+        if (!this.isSleeping()) {
+            super.doPush(entity);
         }
     }
 }

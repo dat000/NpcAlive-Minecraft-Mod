@@ -144,24 +144,34 @@ public class ServerPayloadHandler {
     }
 
     public static void handleSetNpcHome(final SetNpcHomePacket data, final net.neoforged.neoforge.network.handling.IPayloadContext context) {
-        // Ejecutamos la tarea en el hilo principal del servidor para evitar problemas de concurrencia
         context.enqueueWork(() -> {
             net.minecraft.world.entity.player.Player player = context.player();
             net.minecraft.world.level.Level level = player.level();
-
-            // Buscamos a la entidad usando el ID que nos mandó el paquete
             net.minecraft.world.entity.Entity entity = level.getEntity(data.entityId());
 
             if (entity instanceof com.devdat.npcalive.entity.NpcEntity npc) {
-                BlockPos currentPos = npc.blockPosition();
+                net.minecraft.core.BlockPos currentPos = npc.blockPosition();
                 npc.setHomePos(currentPos);
 
-                // Imprime en la consola de IntelliJ/Eclipse para ver qué coordenadas reales guardó
-                com.mojang.logging.LogUtils.getLogger().info("NPC Home set to: {} at entity pos: {}", currentPos, npc.position());
+                // Escaneo de cama en un radio cercano (2 bloques alrededor)
+                net.minecraft.core.BlockPos foundBed = null;
+                for (net.minecraft.core.BlockPos bp : net.minecraft.core.BlockPos.betweenClosed(
+                        currentPos.offset(-2, -1, -2), currentPos.offset(2, 1, 2))) {
+                    if (level.getBlockState(bp).getBlock() instanceof net.minecraft.world.level.block.BedBlock) {
+                        foundBed = bp.immutable();
+                        break;
+                    }
+                }
+
+                npc.setBedPos(foundBed);
 
                 if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                    String message = foundBed != null
+                            ? "sethouse" + npc.getNpcTitle() + " ha establecido su hogar y enlazado su cama."
+                            : "sethouse" + npc.getNpcTitle() + " ha establecido su hogar (No se detectó cama cercana).";
+
                     serverPlayer.sendSystemMessage(
-                            net.minecraft.network.chat.Component.literal("🏠 " + npc.getNpcTitle() + " ha establecido su hogar en: " + currentPos.toShortString())
+                            net.minecraft.network.chat.Component.literal(message)
                     );
                 }
             }
