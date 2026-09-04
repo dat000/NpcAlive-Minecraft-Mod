@@ -22,7 +22,7 @@ public class SleepInBedGoal extends Goal {
     }
 
     /**
-     * Método auxiliar para garantizar que siempre busquemos la almohada (HEAD),
+     * Metodo auxiliar para garantizar que siempre busquemos la almohada (HEAD),
      * sin importar si el bloque guardado fue el de los pies.
      */
     private BlockPos getBedHeadPos() {
