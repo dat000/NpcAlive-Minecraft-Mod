@@ -3,6 +3,7 @@ package com.devdat.npcalive.entity;
 import com.devdat.npcalive.entity.ia.FollowPlayerGoal;
 import com.devdat.npcalive.entity.ia.ReturnHomeGoal;
 import com.devdat.npcalive.entity.ia.SleepInBedGoal;
+import com.devdat.npcalive.entity.ia.WorkAtStationGoal;
 import com.devdat.npcalive.network.OpenNpcGuiPacket;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -15,10 +16,14 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.state.properties.BedPart;
 
 // Imports de IA
 import net.minecraft.world.entity.ai.goal.FloatGoal;
@@ -38,6 +43,9 @@ public class NpcEntity extends PathfinderMob {
     private int interactionPauseTimer = 0;
     private BlockPos bedPosition = null;
     private net.minecraft.core.BlockPos homePosition = null;
+    private net.minecraft.core.BlockPos workPosition = null;
+    private ItemStack savedMainHandItem = ItemStack.EMPTY;
+    private boolean hasEquippedWorkTool = false;
 
     private final net.minecraft.world.SimpleContainer inventory = new net.minecraft.world.SimpleContainer(27);
     private static final EntityDataAccessor<Integer> DATA_ROMANCE = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
@@ -46,6 +54,8 @@ public class NpcEntity extends PathfinderMob {
     private static final EntityDataAccessor<Integer> DATA_NPC_GENDER = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_FRIENDSHIP = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_NPC_BEHAVIOR = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<String> DATA_PROFESSION = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<Boolean> DATA_IS_FAMILY = SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.BOOLEAN);
     private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> DATA_IS_MARRIED =
             net.minecraft.network.syncher.SynchedEntityData.defineId(NpcEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
 
@@ -70,7 +80,8 @@ public class NpcEntity extends PathfinderMob {
     public NpcEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
         this.setCustomNameVisible(true);
-        // Permitir que el navegador considere las puertas como caminos válidos
+
+        // Configuración completa para que el navegador maneje puertas correctamente
         if (this.getNavigation() instanceof net.minecraft.world.entity.ai.navigation.GroundPathNavigation groundNav) {
             groundNav.setCanOpenDoors(true);
         }
@@ -89,26 +100,32 @@ public class NpcEntity extends PathfinderMob {
         super.registerGoals();
 
         this.goalSelector.addGoal(0, new FloatGoal(this));
-        this.goalSelector.addGoal(1, new FollowPlayerGoal(this, 1.2D, 4.0F, 16.0F)); // Activo solo si está en FOLLOW
-        this.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.OpenDoorGoal(this, true)); // Permite abrir y cerrar puertas
+        this.goalSelector.addGoal(1, new net.minecraft.world.entity.ai.goal.OpenDoorGoal(this, true));
 
-        // Prioridad alta para que regrese a casa cuando apliquen las condiciones
-        this.goalSelector.addGoal(2, new ReturnHomeGoal(this, 1.0D));
-        // Prioridad alta para que vaya a la cama de noche
-        this.goalSelector.addGoal(2, new SleepInBedGoal(this, 1.0D));
+        // Prioridad 2: El trabajo es la máxima prioridad durante el horario laboral
+        this.goalSelector.addGoal(2, new WorkAtStationGoal(this, 1.0D));
 
-        this.goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F));
-        this.goalSelector.addGoal(4, new RandomLookAroundGoal(this));
+        // Prioridad 3: Volver a casa inmediatamente al terminar el turno
+        this.goalSelector.addGoal(3, new ReturnHomeGoal(this, 1.0D));
 
-        // Unificamos y optimizamos los dos RandomStrollGoal en uno solo con la regla nocturna
-        this.goalSelector.addGoal(5, new RandomStrollGoal(this, 1.0D) {
+        // Prioridad 4: Dormir si es de noche
+        this.goalSelector.addGoal(4, new SleepInBedGoal(this, 1.0D));
+
+        // Prioridad 5: Seguir al jugador si se le solicita
+        this.goalSelector.addGoal(5, new FollowPlayerGoal(this, 1.2D, 4.0F, 16.0F));
+
+        // Prioridad 6: Acciones pasivas de atención
+        this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 8.0F));
+        this.goalSelector.addGoal(6, new RandomLookAroundGoal(this));
+
+        // Prioridad 7: Deambular (Último recurso cuando está libre)
+        this.goalSelector.addGoal(7, new RandomStrollGoal(this, 1.0D) {
             @Override
             public boolean canUse() {
                 if (NpcEntity.this.isInteracting() || NpcEntity.this.getBehavior() != NpcBehavior.WANDER) {
                     return false;
                 }
 
-                // Si es de noche y tiene casa registrada, limitamos el paseo al interior/cercanías (radio de 6 bloques)
                 if (NpcEntity.this.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
                     long timeOfDay = serverLevel.getDefaultClockTime() % 24000;
                     boolean isNight = timeOfDay >= 13000 && timeOfDay < 23000;
@@ -177,6 +194,12 @@ public class NpcEntity extends PathfinderMob {
         int varianteAleatoria = this.random.nextInt(4);
         this.setNpcVariant(varianteAleatoria);
 
+        if (!this.isFamily()) {
+            this.setProfession(NpcProfession.randomProfession(this.random));
+        } else {
+            this.setProfession(NpcProfession.NONE); // Los de familia empiezan sin profesión asignada hasta que el jugador decida
+        }
+
         return spawnGroupData;
     }
 
@@ -187,9 +210,11 @@ public class NpcEntity extends PathfinderMob {
         builder.define(DATA_NPC_VARIANT, 0);
         builder.define(DATA_NPC_GENDER, 0);
         builder.define(DATA_FRIENDSHIP, 0);
-        builder.define(DATA_NPC_BEHAVIOR, NpcBehavior.WANDER.ordinal()); // Empieza vagando por defecto
+        builder.define(DATA_NPC_BEHAVIOR, NpcBehavior.WANDER.ordinal());
         builder.define(DATA_ROMANCE, 0);
         builder.define(DATA_IS_MARRIED, false);
+        builder.define(DATA_PROFESSION, "NONE"); // Nuevo
+        builder.define(DATA_IS_FAMILY, false);   // Nuevo
     }
 
     @Override
@@ -202,11 +227,13 @@ public class NpcEntity extends PathfinderMob {
         output.putInt("NpcBehavior", this.getBehavior().ordinal());
         output.putInt("Romance", this.getRomance());
         output.putBoolean("IsMarried", this.isMarried());
+        output.putBoolean("IsFamily", this.isFamily()); // Usando el método sincronizado
+        output.putString("NpcProfession", this.getProfession().name()); // Guardamos la profesión como texto
 
-        // Guardar la mochila (ValueOutput.child es directo, sin ifPresent)
+        // Guardar la mochila
         net.minecraft.world.ContainerHelper.saveAllItems(output.child("NpcInventory"), this.inventory.getItems());
 
-        // Guardar el equipamiento visual en una NonNullList de 6 elementos
+        // Guardar el equipamiento visual
         net.minecraft.core.NonNullList<net.minecraft.world.item.ItemStack> equipmentList =
                 net.minecraft.core.NonNullList.withSize(6, net.minecraft.world.item.ItemStack.EMPTY);
         equipmentList.set(0, this.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD));
@@ -235,6 +262,15 @@ public class NpcEntity extends PathfinderMob {
         } else {
             output.putBoolean("HasBed", false);
         }
+
+        if (this.workPosition != null) {
+            output.putBoolean("HasWork", true);
+            output.putInt("WorkX", this.workPosition.getX());
+            output.putInt("WorkY", this.workPosition.getY());
+            output.putInt("WorkZ", this.workPosition.getZ());
+        } else {
+            output.putBoolean("HasWork", false);
+        }
     }
 
     @Override
@@ -253,7 +289,7 @@ public class NpcEntity extends PathfinderMob {
         input.getInt("Romance").ifPresent(this::setRomance);
         this.setMarried(input.getBooleanOr("IsMarried", false));
 
-        // Cargar la mochila (ValueInput sí devuelve Optional, por lo que lleva ifPresent)
+        // Cargar la mochila
         input.child("NpcInventory").ifPresent(childInput -> {
             net.minecraft.world.ContainerHelper.loadAllItems(childInput, this.inventory.getItems());
         });
@@ -287,6 +323,34 @@ public class NpcEntity extends PathfinderMob {
                 input.getInt("BedY").ifPresent(y -> {
                     input.getInt("BedZ").ifPresent(z -> {
                         this.setBedPos(new net.minecraft.core.BlockPos(x, y, z));
+                    });
+                });
+            });
+        }
+
+        this.setFamily(input.getBooleanOr("IsFamily", false));
+
+        // Carga robusta de profesión (soporta texto nuevo o respaldo numérico antiguo)
+        input.getString("NpcProfession").ifPresentOrElse(name -> {
+            try {
+                this.setProfession(NpcProfession.valueOf(name));
+            } catch (IllegalArgumentException e) {
+                this.setProfession(NpcProfession.NONE);
+            }
+        }, () -> {
+            input.getInt("NpcProfession").ifPresent(ordinal -> {
+                NpcProfession[] profs = NpcProfession.values();
+                if (ordinal >= 0 && ordinal < profs.length) {
+                    this.setProfession(profs[ordinal]);
+                }
+            });
+        });
+
+        if (input.getBooleanOr("HasWork", false)) {
+            input.getInt("WorkX").ifPresent(x -> {
+                input.getInt("WorkY").ifPresent(y -> {
+                    input.getInt("WorkZ").ifPresent(z -> {
+                        this.setWorkPos(new net.minecraft.core.BlockPos(x, y, z));
                     });
                 });
             });
@@ -448,4 +512,171 @@ public class NpcEntity extends PathfinderMob {
             super.doPush(entity);
         }
     }
+
+    public boolean isFamily() {
+        return this.entityData.get(DATA_IS_FAMILY);
+    }
+
+    public void setFamily(boolean family) {
+        this.entityData.set(DATA_IS_FAMILY, family);
+    }
+
+    // Métodos de acceso
+    public NpcProfession getProfession() {
+        try {
+            return NpcProfession.valueOf(this.entityData.get(DATA_PROFESSION));
+        } catch (Exception e) {
+            return NpcProfession.NONE;
+        }
+    }
+
+    public void setProfession(NpcProfession profession) {
+        this.entityData.set(DATA_PROFESSION, profession != null ? profession.name() : "NONE");
+    }
+
+    public net.minecraft.core.BlockPos getWorkPos() {
+        return this.workPosition;
+    }
+
+    public void setWorkPos(net.minecraft.core.BlockPos pos) {
+        this.workPosition = pos;
+    }
+
+    public boolean isValidWorkstation(net.minecraft.world.level.block.state.BlockState state) {
+        return this.getProfession().matchesWorkstation(state);
+    }
+
+    public boolean searchAndAssignWorkstation() {
+        BlockPos currentPos = this.blockPosition();
+        int radius = 16; // Ampliamos un poco el radio para pruebas
+        int verticalRange = 6; // Ampliamos de 3 a 6 bloques hacia arriba y abajo
+
+        System.out.println("[NPC Debug] " + this.getNpcTitle() + " buscando estación de trabajo alrededor de: " + currentPos);
+
+        for (BlockPos bp : BlockPos.betweenClosed(
+                currentPos.offset(-radius, -verticalRange, -radius),
+                currentPos.offset(radius, verticalRange, radius))) {
+
+            BlockState state = this.level().getBlockState(bp);
+
+            // Verificamos si el bloque coincide con alguna profesión
+            NpcProfession foundProf = NpcProfession.getByWorkstation(state);
+
+            if (foundProf != NpcProfession.NONE) {
+                System.out.println("[NPC Debug] ¡Bloque de trabajo encontrado!: " + state.getBlock().getName().getString() + " en " + bp);
+
+                // Verificamos que el bloque no esté ocupado por otro NPC
+                if (!isWorkstationTaken(bp.immutable())) {
+                    this.setProfession(foundProf);
+                    this.setWorkPos(bp.immutable());
+                    System.out.println("[NPC Debug] ¡Estación asignada con éxito! Profesión: " + foundProf.name());
+                    return true;
+                } else {
+                    System.out.println("[NPC Debug] El bloque en " + bp + " ya está ocupado por otro NPC.");
+                }
+            }
+        }
+
+        System.out.println("[NPC Debug] No se encontró ninguna estación de trabajo libre en el rango.");
+        return false;
+    }
+
+    private boolean isBlockCompatibleWithProfession(BlockPos pos) {
+        if (this.level() == null) return false;
+        net.minecraft.world.level.block.state.BlockState state = this.level().getBlockState(pos);
+
+        // Aprovecha directamente el metodo que ya tiene tu enum NpcProfession
+        return this.getProfession().matchesWorkstation(state);
+    }
+
+    private boolean isWorkstationTaken(BlockPos pos) {
+        if (this.level() == null) return false;
+
+        net.minecraft.world.phys.AABB searchBox = new net.minecraft.world.phys.AABB(pos).inflate(16.0D);
+        for (NpcEntity otherNpc : this.level().getEntitiesOfClass(NpcEntity.class, searchBox)) {
+            if (otherNpc != this && otherNpc.getWorkPos() != null && otherNpc.getWorkPos().equals(pos)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean isBedTaken(BlockPos headPos) {
+        if (this.level() == null) return false;
+
+        // Ampliamos la búsqueda alrededor del NPC para detectar si otro NPC cercano ya reclama esta cama
+        net.minecraft.world.phys.AABB searchBox = this.getBoundingBox().inflate(32.0D);
+        for (NpcEntity otherNpc : this.level().getEntitiesOfClass(NpcEntity.class, searchBox)) {
+            if (otherNpc != this) {
+                // Verificar si tiene la cama asignada en su memoria
+                if (otherNpc.getBedPos() != null && otherNpc.getBedPos().equals(headPos)) {
+                    return true;
+                }
+                // O si ya está acostado físicamente en esa posición
+                if (otherNpc.isSleeping() && headPos.equals(otherNpc.blockPosition())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean searchAndAssignBed() {
+        BlockPos currentPos = this.blockPosition();
+        int radius = 12; // Radio de búsqueda de camas
+
+        for (BlockPos bp : BlockPos.betweenClosed(
+                currentPos.offset(-radius, -3, -radius),
+                currentPos.offset(radius, 3, radius))) {
+
+            BlockState state = this.level().getBlockState(bp);
+            if (state.getBlock() instanceof BedBlock) {
+                BlockPos headPos = bp;
+                if (state.getValue(BedBlock.PART) != BedPart.HEAD) {
+                    net.minecraft.core.Direction facing = state.getValue(BedBlock.FACING);
+                    headPos = bp.relative(facing);
+                }
+
+                if (!isBedTaken(headPos.immutable())) {
+                    this.setBedPos(headPos.immutable());
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public BlockPos getValidWorkPos() {
+        if (this.workPosition == null) return null;
+
+        BlockState state = this.level().getBlockState(this.workPosition);
+        // Comprobamos si el bloque actual sigue coincidiendo con la profesión del NPC
+        if (!NpcProfession.getByWorkstation(state).equals(this.getProfession())) {
+            // ¡El bloque fue destruido o cambiado! Borramos la memoria
+            this.workPosition = null;
+            this.setProfession(NpcProfession.NONE);
+            return null;
+        }
+        return this.workPosition;
+    }
+
+    public void equipWorkTool(ItemStack workTool) {
+        if (!hasEquippedWorkTool && !workTool.isEmpty()) {
+            // 1. Guardamos lo que tenía en la mano ANTES de empezar a trabajar
+            this.savedMainHandItem = this.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND).copy();
+            // 2. Le ponemos la herramienta de trabajo en la mano
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, workTool.copy());
+            hasEquippedWorkTool = true;
+        }
+    }
+
+    public void restoreOriginalHand() {
+        if (hasEquippedWorkTool) {
+            // 3. Al terminar, devolvemos exactamente lo que tenía equipado
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, this.savedMainHandItem);
+            this.savedMainHandItem = ItemStack.EMPTY;
+            hasEquippedWorkTool = false;
+        }
+    }
+
 }

@@ -1,9 +1,7 @@
 package com.devdat.npcalive.client.gui;
 
 import com.devdat.npcalive.inventory.NpcMenu;
-import com.devdat.npcalive.network.SetNpcHomePacket;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -22,22 +20,7 @@ public class NpcScreen extends AbstractContainerScreen<NpcMenu> {
     @Override
     protected void init() {
         super.init();
-
-        int x = (this.width - this.imageWidth) / 2;
-        int y = (this.height - this.imageHeight) / 2;
-
-        // Agregamos el botón de "Establecer Hogar"
-        this.addRenderableWidget(Button.builder(Component.literal("Establecer Hogar"), button -> {
-                    int entityId = this.menu.getNpc().getId();
-
-                    // Envío seguro del paquete al servidor
-                    if (net.minecraft.client.Minecraft.getInstance().getConnection() != null) {
-                        net.minecraft.client.Minecraft.getInstance().getConnection().send(new SetNpcHomePacket(entityId));
-                    }
-                })
-                .pos(x + 110, y + 68)
-                .size(90, 20)
-                .build());
+        // Sin botones de testing: la interfaz del inventario queda limpia exclusivamente para ítems.
     }
 
     @Override
@@ -80,20 +63,14 @@ public class NpcScreen extends AbstractContainerScreen<NpcMenu> {
     }
 
     private void drawSlotBackground(GuiGraphicsExtractor graphics, int posX, int posY) {
-        // Desplazamos -1 para centrar el cuadro de 18x18 alrededor del ítem de 16x16
         int startX = posX - 1;
         int startY = posY - 1;
 
-        // 1. Fondo central del slot (Gris medio clásico)
         graphics.fill(startX, startY, startX + 18, startY + 18, 0xFF8B8B8B);
-
-        // 2. Sombra 3D (Borde superior e izquierdo - Gris oscuro)
-        graphics.fill(startX, startY, startX + 17, startY + 1, 0xFF373737); // Línea superior
-        graphics.fill(startX, startY, startX + 1, startY + 17, 0xFF373737); // Línea izquierda
-
-        // 3. Brillo 3D (Borde inferior y derecho - Blanco puro)
-        graphics.fill(startX, startY + 17, startX + 18, startY + 18, 0xFFFFFFFF); // Línea inferior
-        graphics.fill(startX + 17, startY, startX + 18, startY + 18, 0xFFFFFFFF); // Línea derecha
+        graphics.fill(startX, startY, startX + 17, startY + 1, 0xFF373737);
+        graphics.fill(startX, startY, startX + 1, startY + 17, 0xFF373737);
+        graphics.fill(startX, startY + 17, startX + 18, startY + 18, 0xFFFFFFFF);
+        graphics.fill(startX + 17, startY, startX + 18, startY + 18, 0xFFFFFFFF);
     }
 
     @Override

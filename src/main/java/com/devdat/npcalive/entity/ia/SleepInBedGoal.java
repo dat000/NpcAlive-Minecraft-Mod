@@ -21,20 +21,24 @@ public class SleepInBedGoal extends Goal {
         this.setFlags(EnumSet.of(Goal.Flag.MOVE, Goal.Flag.LOOK, Goal.Flag.JUMP));
     }
 
-    /**
-     * Metodo auxiliar para garantizar que siempre busquemos la almohada (HEAD),
-     * sin importar si el bloque guardado fue el de los pies.
-     */
     private BlockPos getBedHeadPos() {
         BlockPos pos = npc.getBedPos();
         if (pos == null) return null;
 
         BlockState state = npc.level().getBlockState(pos);
-        if (state.getBlock() instanceof BedBlock) {
-            if (state.getValue(BedBlock.PART) != BedPart.HEAD) {
-                Direction facing = state.getValue(BedBlock.FACING);
-                return pos.relative(facing); // Nos movemos hacia donde apunta la cama (la cabecera)
+
+        // SEGURIDAD: Si la cama fue destruida o reemplazada por aire/otro bloque
+        if (!(state.getBlock() instanceof BedBlock)) {
+            npc.setBedPos(null); // Olvidamos la cama rota
+            if (npc.isSleeping()) {
+                npc.stopSleeping(); // Nos levantamos inmediatamente
             }
+            return null;
+        }
+
+        if (state.getValue(BedBlock.PART) != BedPart.HEAD) {
+            Direction facing = state.getValue(BedBlock.FACING);
+            return pos.relative(facing);
         }
         return pos;
     }
@@ -42,6 +46,12 @@ public class SleepInBedGoal extends Goal {
     @Override
     public boolean canUse() {
         if (npc.getBehavior() == NpcEntity.NpcBehavior.STAY) return false;
+
+        // Si no tiene cama o la que tenía fue ocupada por otro, busca una libre
+        BlockPos currentHead = getBedHeadPos();
+        if (currentHead == null || npc.isBedTaken(currentHead)) {
+            npc.searchAndAssignBed();
+        }
 
         BlockPos bedHead = getBedHeadPos();
         if (bedHead == null) return false;
@@ -59,7 +69,12 @@ public class SleepInBedGoal extends Goal {
         if (npc.getBehavior() == NpcEntity.NpcBehavior.STAY) return false;
 
         BlockPos bedHead = getBedHeadPos();
-        if (bedHead == null) return false;
+        if (bedHead == null) {
+            if (npc.isSleeping()) {
+                npc.stopSleeping();
+            }
+            return false;
+        }
 
         if (npc.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             long timeOfDay = serverLevel.getDefaultClockTime() % 24000;
@@ -74,11 +89,9 @@ public class SleepInBedGoal extends Goal {
             return false;
         }
 
-        // Usamos la posición de la cabecera para detenernos
         if (npc.blockPosition().distSqr(bedHead) <= 2.5D) {
             npc.getNavigation().stop();
             if (!npc.isSleeping()) {
-                // Ajustamos la posición exactamente al centro de la almohada con la altura vainilla (0.6875D)
                 npc.setPos(bedHead.getX() + 0.5D, bedHead.getY() + 0.6875D, bedHead.getZ() + 0.5D);
                 npc.startSleeping(bedHead);
             }

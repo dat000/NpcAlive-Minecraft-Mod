@@ -23,15 +23,25 @@ public class ReturnHomeGoal extends Goal {
         BlockPos home = npc.getHomePos();
         if (home == null) return false;
 
-        boolean tooFar = npc.blockPosition().distSqr(home) > 100.0D;
-
         boolean isNight = false;
+        boolean isWorkingTime = false;
+
         if (npc.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             long timeOfDay = serverLevel.getDefaultClockTime() % 24000;
             isNight = timeOfDay >= 13000 && timeOfDay < 23000;
+
+            // Validar con los turnos reales de la profesión en lugar del rango fijo de 0 a 12000
+            if (npc.getValidWorkPos() != null) {
+                var logic = com.devdat.npcalive.entity.profession.ProfessionRegistry.getLogic(npc.getProfession());
+                boolean firstShift = timeOfDay >= logic.getWorkStartTime() && timeOfDay < logic.getWorkEndTime();
+                boolean secondShift = logic.getSecondWorkStartTime() != -1 && timeOfDay >= logic.getSecondWorkStartTime() && timeOfDay < logic.getSecondWorkEndTime();
+                isWorkingTime = firstShift || secondShift;
+            }
         }
 
-        // Reducimos el umbral a 2.0D para que no se detenga antes de entrar por la puerta
+        // Si YA TERMINÓ su turno, 'isWorkingTime' pasa a ser false, activando el 'tooFar' de inmediato
+        boolean tooFar = !isWorkingTime && npc.blockPosition().distSqr(home) > 100.0D;
+
         return (tooFar || isNight) && npc.blockPosition().distSqr(home) > 2.0D;
     }
 
@@ -51,7 +61,6 @@ public class ReturnHomeGoal extends Goal {
         BlockPos home = npc.getHomePos();
         if (home == null) return false;
 
-        // Solo se detiene cuando está verdaderamente pegado al punto de hogar (radio menor a 1.5 bloques)
         if (npc.blockPosition().distSqr(home) <= 1.5D) {
             return false;
         }

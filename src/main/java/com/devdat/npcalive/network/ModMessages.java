@@ -22,7 +22,7 @@ public class ModMessages {
                 })
         );
 
-        // 2. Paquete existente (Cliente a Servidor)
+        // 2. Paquete existente (Cliente a Servidor - Acciones del menú y botones)
         registrar.playToServer(
                 PerformNpcActionPacket.TYPE,
                 PerformNpcActionPacket.STREAM_CODEC,
@@ -31,13 +31,11 @@ public class ModMessages {
                 })
         );
 
-        // 3. NUEVO PAQUETE para el Set Home (Cliente a Servidor)
+        // 3. Paquete de asignación de puesto
         registrar.playToServer(
-                SetNpcHomePacket.TYPE,
-                SetNpcHomePacket.STREAM_CODEC,
-                (payload, context) -> context.enqueueWork(() -> {
-                    ServerPayloadHandler.handleSetNpcHome(payload, context);
-                })
+                AssignWorkstationPacket.TYPE,
+                AssignWorkstationPacket.STREAM_CODEC,
+                AssignWorkstationPacket::handle
         );
     }
 }

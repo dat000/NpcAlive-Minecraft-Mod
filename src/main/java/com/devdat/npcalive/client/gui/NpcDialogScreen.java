@@ -2,7 +2,6 @@ package com.devdat.npcalive.client.gui;
 
 import com.devdat.npcalive.entity.NpcEntity;
 import com.devdat.npcalive.network.PerformNpcActionPacket;
-import com.devdat.npcalive.network.SetNpcHomePacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -27,7 +26,7 @@ public class NpcDialogScreen extends Screen {
         super.init();
 
         int boxWidth = 220;
-        int boxHeight = 285; // Altura ajustada para alojar todos los botones
+        int boxHeight = 310; // Altura extendida para acomodar el nuevo botón
         int boxX = (this.width - boxWidth) / 2;
         int boxY = (this.height - boxHeight) / 2;
 
@@ -72,17 +71,19 @@ public class NpcDialogScreen extends Screen {
             sendAction("TRANSACTIONS");
         }).bounds(btnX, startY + 96, btnWidth, btnHeight).build());
 
-        // Botón de Establecer Hogar integrado en el menú principal
+        // Botón de Establecer Hogar en el menú principal
         this.addRenderableWidget(Button.builder(Component.literal("Establecer Hogar"), button -> {
-            if (Minecraft.getInstance().getConnection() != null) {
-                Minecraft.getInstance().getConnection().send(new SetNpcHomePacket(this.entityId));
-            }
-            this.onClose();
+            sendAction("SET_HOME");
         }).bounds(btnX, startY + 120, btnWidth, btnHeight).build());
+
+        // Botón de Asignar Puesto en el menú principal
+        this.addRenderableWidget(Button.builder(Component.literal("Asignar Puesto"), button -> {
+            sendAction("ASSIGN_WORKSTATION");
+        }).bounds(btnX, startY + 144, btnWidth, btnHeight).build());
 
         this.addRenderableWidget(Button.builder(Component.literal("Modo: " + behaviorText), button -> {
             sendAction("FOLLOW");
-        }).bounds(btnX, startY + 144, btnWidth, btnHeight).build());
+        }).bounds(btnX, startY + 168, btnWidth, btnHeight).build());
 
         // EL BOTÓN CONDICIONAL: Proponer o Inventario
         Component specialButtonText = isMarried ? Component.literal("Inventario") : Component.literal("Proponer");
@@ -90,7 +91,7 @@ public class NpcDialogScreen extends Screen {
 
         this.addRenderableWidget(Button.builder(specialButtonText, button -> {
             sendAction(specialAction);
-        }).bounds(btnX, startY + 168, btnWidth, btnHeight).build());
+        }).bounds(btnX, startY + 192, btnWidth, btnHeight).build());
     }
 
     private void sendAction(String actionName) {
@@ -103,18 +104,33 @@ public class NpcDialogScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         int boxWidth = 220;
-        int boxHeight = 285;
+        int boxHeight = 310;
         int boxX = (this.width - boxWidth) / 2;
         int boxY = (this.height - boxHeight) / 2;
 
-        // 1. Dibujar el fondo
+        // 1. Dibujar el panel principal del diálogo
         graphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xCC111111);
         graphics.outline(boxX, boxY, boxWidth, boxHeight, 0xFF555555);
 
-        // 2. Obtener los valores actuales desde la entidad del cliente
+        // --- 2. PANEL LATERAL DE DEBUG (Izquierda) ---
+        int debugWidth = 140;
+        int debugHeight = 110;
+        int debugX = boxX - debugWidth - 8; // Pegado a la izquierda del panel principal
+        int debugY = boxY;
+
+        // Fondo y borde del panel de debug
+        graphics.fill(debugX, debugY, debugX + debugWidth, debugY + debugHeight, 0xCC111111);
+        graphics.outline(debugX, debugY, debugWidth, debugHeight, 0xFFFF5555); // Borde rojizo/distintivo para dev
+
+        // Obtener los valores actuales desde la entidad del cliente
         int friendshipValue = 0;
         int romanceValue = 0;
         String dialogueKey = "dialog.npcalive.mood.neutral";
+
+        com.devdat.npcalive.entity.NpcProfession profession = com.devdat.npcalive.entity.NpcProfession.NONE;
+        boolean isFamily = false;
+        boolean isMarried = false;
+        String behaviorStr = "WANDER";
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != null) {
@@ -123,16 +139,31 @@ public class NpcDialogScreen extends Screen {
                 friendshipValue = npc.getFriendship();
                 romanceValue = npc.getRomance();
                 dialogueKey = npc.getDialogueKey();
+
+                profession = npc.getProfession();
+                isFamily = npc.isFamily();
+                isMarried = npc.isMarried();
+                behaviorStr = npc.getBehavior().name();
             }
         }
 
-        // 3. Textos informativos
+        // Textos del panel principal
         graphics.text(this.font, Component.translatable(dialogueKey), boxX + 15, boxY + 15, 0xFFFFFFFF, true);
         graphics.text(this.font, Component.translatable("dialog.npcalive.gender", this.genderStr), boxX + 15, boxY + 30, 0xFFCCCCCC, true);
         graphics.text(this.font, Component.translatable("dialog.npcalive.friendship", friendshipValue), boxX + 15, boxY + 45, 0xFF55FF55, true);
         graphics.text(this.font, Component.translatable("dialog.npcalive.romance", romanceValue), boxX + 15, boxY + 60, 0xFFFF55FF, true);
 
-        // 4. Renderizar widgets encima
+        // Textos dentro del panel lateral de Debug
+        int textX = debugX + 10;
+        int textY = debugY + 10;
+        graphics.text(this.font, Component.literal("§e--- PANEL DEV ---"), textX, textY, 0xFFFFFF55, true);
+        graphics.text(this.font, Component.literal("Prof: " + profession), textX, textY + 16, 0xFFAAAAAA, true);
+        graphics.text(this.font, Component.literal("Familia: " + isFamily), textX, textY + 28, 0xFFAAAAAA, true);
+        graphics.text(this.font, Component.literal("Casado: " + isMarried), textX, textY + 40, 0xFFAAAAAA, true);
+        graphics.text(this.font, Component.literal("Estado: " + behaviorStr), textX, textY + 52, 0xFFAAAAAA, true);
+        graphics.text(this.font, Component.literal("ID Entidad: " + this.entityId), textX, textY + 64, 0xFFAAAAAA, true);
+
+        // 3. Renderizar widgets (botones) encima
         super.extractRenderState(graphics, mouseX, mouseY, delta);
     }
 
