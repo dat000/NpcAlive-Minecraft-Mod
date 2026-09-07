@@ -1,5 +1,18 @@
 # Documentación de SmithProfession
 
+## Guía del Herrero: Tu Maestro Artesano
+
+El herrero es un NPC trabajador que se encarga de abastecer tu aldea con recursos de hierro, carbón y herramientas útiles de forma totalmente autónoma.
+
+*   **Horarios de trabajo:** El herrero cumple con dos turnos de trabajo diarios (por la mañana y por la tarde). Fuera de esos horarios, descansa o se mueve por la zona.
+*   **Rutina en el taller:** No se queda quieto en un solo bloque. Si le dejas cerca una Mesa de Herrería, un Alto Horno y un Yunque, el NPC rotará entre estas máquinas de forma natural para simular que funde, golpea y repara.
+*   **Lo que produce:** Mientras trabaja, acumula elementos en su mochila. La mayor parte del tiempo fabricará recursos básicos como carbón o pepitas de hierro, pero con menor probabilidad puede conseguir lingotes de hierro, picos o incluso armaduras de caballo.
+*   **Depósito automático en cofres:** No tienes que vaciarle los bolsillos a mano. Tan pronto como termina su turno de trabajo o su mochila se llena, el herrero caminará solo hasta el cofre más cercano para guardar todo lo que recolectó.
+
+---
+
+## Documentación Técnica
+
 **Descripción General**
 `SmithProfession` gestiona la inteligencia artificial y la rutina laboral de los NPCs herreros. Combina la producción de recursos mediante una tabla de probabilidades balanceada, el uso alternado de estaciones de trabajo (mesa principal, alto horno y yunque) y la gestión automática de almacenamiento en cofres.
 

@@ -1,5 +1,18 @@
 # Documentación de FarmerProfession
 
+## Guía del Granjero: Tu Maestro Agricultor
+
+El agricultor es un NPC trabajador que se encarga de cuidar tus cultivos, cosechar, usar el compostador y guardar los frutos de forma totalmente autónoma.
+
+*   **Horarios de trabajo:** El agricultor cumple con dos turnos de trabajo diarios (por la mañana y por la tarde) para realizar sus labores en los campos.
+*   **Rutina en el campo:** Se desplaza por la zona para buscar cultivos maduros, cosechar calabazas o melones y replantar automáticamente de inmediato tras la cosecha.
+*   **Uso del compostador:** Si tiene elementos aptos, los lleva al compostador para generar abono (harina de huesos) de forma automática.
+*   **Depósito automático en cofres:** No tienes que vaciarle los bolsillos a mano. Tan pronto como termina su turno de trabajo o su inventario se acumula, el agricultor camina solo hasta el cofre cercano para guardar todo lo recolectado.
+
+---
+
+## Documentación Técnica
+
 **Descripción General**
 `FarmerProfession` gestiona la inteligencia artificial y el comportamiento laboral de los NPCs agricultores en el mod. Se encarga de la siembra, cosecha, uso de compostadores y la transferencia automática de recursos a los cofres cercanos.
 
