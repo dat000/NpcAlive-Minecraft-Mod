@@ -12,6 +12,7 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -677,6 +678,44 @@ public class NpcEntity extends PathfinderMob {
             this.savedMainHandItem = ItemStack.EMPTY;
             hasEquippedWorkTool = false;
         }
+    }
+
+    /**
+     * Inserta un ItemStack exclusivamente en los slots de la mochila (del índice 6 al 26),
+     * protegiendo los slots de equipamiento y herramientas (0 al 5).
+     */
+    public boolean addItemToBackpack(ItemStack stack) {
+        if (stack.isEmpty()) return true;
+
+        SimpleContainer inv = this.inventory;
+
+        // 1. Intentar apilar en los slots existentes de la mochila (índices 6 a 26)
+        for (int i = 6; i < inv.getContainerSize(); i++) {
+            ItemStack slotItem = inv.getItem(i);
+            if (!slotItem.isEmpty() && ItemStack.isSameItemSameComponents(slotItem, stack)) {
+                int needed = slotItem.getMaxStackSize() - slotItem.getCount();
+                if (needed > 0) {
+                    int toAdd = Math.min(needed, stack.getCount());
+                    slotItem.grow(toAdd);
+                    stack.shrink(toAdd);
+                    if (stack.isEmpty()) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // 2. Si sobra, buscar el primer slot vacío en la mochila (índices 6 a 26)
+        for (int i = 6; i < inv.getContainerSize(); i++) {
+            if (inv.getItem(i).isEmpty()) {
+                inv.setItem(i, stack.copy());
+                stack.setCount(0);
+                return true;
+            }
+        }
+
+        // Si la mochila está completamente llena
+        return false;
     }
 
 }
