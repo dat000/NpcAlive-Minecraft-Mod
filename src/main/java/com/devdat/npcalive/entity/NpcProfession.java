@@ -10,7 +10,8 @@ import java.util.Map;
 
 public enum NpcProfession {
     NONE(null),
-    FARMER(Blocks.COMPOSTER); // 1. Granjero -> Compostador
+    FARMER(Blocks.COMPOSTER),
+    SMITH(Blocks.SMITHING_TABLE);
 
     private final Block workstationBlock;
 

@@ -25,8 +25,6 @@ import java.util.List;
 
 public class FarmerProfession implements ProfessionLogic {
 
-    private static final int BACKPACK_START = 6;
-    private static final int BACKPACK_END = 13;
     private static final int WORK_RADIUS = 8;
 
     @Override
@@ -43,7 +41,7 @@ public class FarmerProfession implements ProfessionLogic {
         if ((endingFirst || endingSecond) && hasAnyItemInBackpack(inventory)) {
             BlockPos stationChestPos = findChestAdjacentToWorkstation(serverLevel, workPos);
             if (stationChestPos != null) {
-                return stationChestPos.north().immutable(); // O la posición adyacente que use tu lógica de cofre
+                return stationChestPos.north().immutable();
             }
         }
 
@@ -117,8 +115,8 @@ public class FarmerProfession implements ProfessionLogic {
             }
         }
 
-        // 5. PATRULLAJE TRANQUILO SOBRE CULTIVOS: Recorre de forma fluida las zonas de plantación
-        long timeSlot = serverLevel.getGameTime() / 120; // Cambia de posición cada 6 segundos aprox
+        // 5. PATRULLAJE TRANQUILO SOBRE CULTIVOS
+        long timeSlot = serverLevel.getGameTime() / 120;
         List<BlockPos> farmSpots = new ArrayList<>();
 
         for (BlockPos pos : BlockPos.betweenClosed(
@@ -160,7 +158,7 @@ public class FarmerProfession implements ProfessionLogic {
         if (targetChest != null && hasAnyItemInBackpack(inventory)) {
             if (workTimer == 0 || workTimer % 20 == 0) {
                 npc.swing(InteractionHand.MAIN_HAND, true);
-                serverLevel.blockEvent(targetChest, serverLevel.getBlockState(targetChest).getBlock(), 1, 1); // <-- Animación de abrir
+                serverLevel.blockEvent(targetChest, serverLevel.getBlockState(targetChest).getBlock(), 1, 1);
                 serverLevel.playSound(null, targetChest, SoundEvents.CHEST_OPEN, SoundSource.BLOCKS, 0.5F, 1.0F);
             }
             return;
@@ -195,7 +193,7 @@ public class FarmerProfession implements ProfessionLogic {
             BlockEntity blockEntity = serverLevel.getBlockEntity(chestPos);
             if (blockEntity instanceof Container chestContainer) {
                 if (transferBackpackToChest(inventory, chestContainer)) {
-                    serverLevel.blockEvent(chestPos, serverLevel.getBlockState(chestPos).getBlock(), 1, 0); // <-- Animación de cerrar
+                    serverLevel.blockEvent(chestPos, serverLevel.getBlockState(chestPos).getBlock(), 1, 0);
                     serverLevel.playSound(null, chestPos, SoundEvents.CHEST_CLOSE, SoundSource.BLOCKS, 0.5F, 1.0F);
                     return;
                 }
@@ -223,7 +221,7 @@ public class FarmerProfession implements ProfessionLogic {
                 if (level == 8) {
                     serverLevel.setBlock(composterPos, composterState.setValue(ComposterBlock.LEVEL, 0), 3);
                     serverLevel.playSound(null, composterPos, SoundEvents.COMPOSTER_READY, SoundSource.BLOCKS, 1.0F, 1.0F);
-                    addItemToBackpack(inventory, new ItemStack(Items.BONE_MEAL, 1));
+                    npc.addItemToBackpack(new ItemStack(Items.BONE_MEAL, 1));
                     return;
                 } else if (level < 7 && hasCompostableItems(inventory)) {
                     if (consumeCompostableItem(inventory)) {
@@ -257,7 +255,7 @@ public class FarmerProfession implements ProfessionLogic {
             return;
         }
 
-        // 5. ESTADO DE PASEO SOBRE CULTIVOS: Cuando llega al punto de patrulla, inspecciona con calma
+        // 5. ESTADO DE PASEO SOBRE CULTIVOS
         if (targetPos.distManhattan(workPos) > WORK_RADIUS) {
             return;
         }
@@ -268,94 +266,10 @@ public class FarmerProfession implements ProfessionLogic {
         serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, px, py, pz, 1, 0.2, 0.2, 0.2, 0.02);
     }
 
-    private boolean isBackpackFull(SimpleContainer inventory) {
-        if (inventory == null) return false;
-        for (int i = BACKPACK_START; i <= BACKPACK_END; i++) {
-            if (inventory.getItem(i).isEmpty()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean hasAnyItemInBackpack(SimpleContainer inventory) {
-        if (inventory == null) return false;
-        for (int i = BACKPACK_START; i <= BACKPACK_END; i++) {
-            if (!inventory.getItem(i).isEmpty()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private BlockPos findChestAdjacentToWorkstation(ServerLevel level, BlockPos workPos) {
-        for (BlockPos neighbor : BlockPos.betweenClosed(workPos.offset(-1, 0, -1), workPos.offset(1, 1, 1))) {
-            if (neighbor.distManhattan(workPos) <= 1) {
-                if (level.getBlockState(neighbor).is(Blocks.CHEST) || level.getBlockState(neighbor).is(Blocks.TRAPPED_CHEST)) {
-                    return neighbor.immutable();
-                }
-            }
-        }
-        return null;
-    }
-
-    private boolean transferBackpackToChest(SimpleContainer inventory, Container chest) {
-        boolean transferredSomething = false;
-        for (int i = BACKPACK_START; i <= BACKPACK_END; i++) {
-            ItemStack stack = inventory.getItem(i);
-            if (!stack.isEmpty()) {
-                int originalCount = stack.getCount();
-                ItemStack remainder = insertItemIntoChest(chest, stack);
-                inventory.setItem(i, remainder);
-                if (remainder.getCount() < originalCount) {
-                    transferredSomething = true;
-                }
-            }
-        }
-        if (transferredSomething) {
-            inventory.setChanged();
-        }
-        return transferredSomething;
-    }
-
-    private ItemStack insertItemIntoChest(Container chest, ItemStack stack) {
-        for (int i = 0; i < chest.getContainerSize() && !stack.isEmpty(); i++) {
-            ItemStack existing = chest.getItem(i);
-            if (existing.isEmpty()) {
-                chest.setItem(i, stack.copy());
-                stack.setCount(0);
-                chest.setChanged();
-                break;
-            } else if (ItemStack.isSameItemSameComponents(existing, stack)) {
-                int space = existing.getMaxStackSize() - existing.getCount();
-                if (space > 0) {
-                    int toTransfer = Math.min(space, stack.getCount());
-                    existing.grow(toTransfer);
-                    stack.shrink(toTransfer);
-                    chest.setChanged();
-                }
-            }
-        }
-        return stack;
-    }
-
-    private BlockPos getAdjacentBlock(ServerLevel level, BlockPos pos, Block... targetBlocks) {
-        for (BlockPos neighbor : BlockPos.betweenClosed(pos.offset(-1, 0, -1), pos.offset(1, 1, 1))) {
-            if (neighbor.distManhattan(pos) <= 1) {
-                BlockState neighborState = level.getBlockState(neighbor);
-                for (Block target : targetBlocks) {
-                    if (neighborState.is(target)) {
-                        return neighbor;
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
     private boolean hasCompostableItems(SimpleContainer inventory) {
         if (inventory == null) return false;
-        for (int i = BACKPACK_START; i <= BACKPACK_END; i++) {
+        int end = getBackpackEnd(inventory);
+        for (int i = BACKPACK_START; i <= end; i++) {
             ItemStack stack = inventory.getItem(i);
             if (!stack.isEmpty() && (stack.is(Items.WHEAT_SEEDS) || stack.is(Items.BEETROOT_SEEDS) || stack.is(Items.TORCHFLOWER_SEEDS))) {
                 return true;
@@ -366,7 +280,8 @@ public class FarmerProfession implements ProfessionLogic {
 
     private boolean consumeCompostableItem(SimpleContainer inventory) {
         if (inventory == null) return false;
-        for (int i = BACKPACK_START; i <= BACKPACK_END; i++) {
+        int end = getBackpackEnd(inventory);
+        for (int i = BACKPACK_START; i <= end; i++) {
             ItemStack stack = inventory.getItem(i);
             if (!stack.isEmpty() && (stack.is(Items.WHEAT_SEEDS) || stack.is(Items.BEETROOT_SEEDS) || stack.is(Items.TORCHFLOWER_SEEDS))) {
                 stack.shrink(1);
@@ -391,7 +306,8 @@ public class FarmerProfession implements ProfessionLogic {
 
     private boolean consumeItemFromBackpack(SimpleContainer inventory, Item itemToConsume) {
         if (inventory == null) return false;
-        for (int i = BACKPACK_START; i <= BACKPACK_END; i++) {
+        int end = getBackpackEnd(inventory);
+        for (int i = BACKPACK_START; i <= end; i++) {
             ItemStack stack = inventory.getItem(i);
             if (!stack.isEmpty() && stack.is(itemToConsume)) {
                 stack.shrink(1);
@@ -433,31 +349,7 @@ public class FarmerProfession implements ProfessionLogic {
         SimpleContainer inventory = npc.getInventory();
         if (inventory != null) {
             for (ItemStack stack : drops) {
-                addItemToBackpack(inventory, stack);
-            }
-        }
-    }
-
-    private void addItemToBackpack(SimpleContainer inventory, ItemStack stack) {
-        for (int i = BACKPACK_START; i <= BACKPACK_END && !stack.isEmpty(); i++) {
-            ItemStack existing = inventory.getItem(i);
-            if (!existing.isEmpty() && ItemStack.isSameItemSameComponents(existing, stack)) {
-                int space = existing.getMaxStackSize() - existing.getCount();
-                if (space > 0) {
-                    int toTransfer = Math.min(space, stack.getCount());
-                    existing.grow(toTransfer);
-                    stack.shrink(toTransfer);
-                    inventory.setChanged();
-                }
-            }
-        }
-
-        for (int i = BACKPACK_START; i <= BACKPACK_END && !stack.isEmpty(); i++) {
-            if (inventory.getItem(i).isEmpty()) {
-                inventory.setItem(i, stack.copy());
-                stack.setCount(0);
-                inventory.setChanged();
-                break;
+                npc.addItemToBackpack(stack);
             }
         }
     }
@@ -467,17 +359,6 @@ public class FarmerProfession implements ProfessionLogic {
         return true;
     }
 
-    private boolean hasEnoughItemsToStore(SimpleContainer inventory) {
-        if (inventory == null) return false;
-        int count = 0;
-        for (int i = BACKPACK_START; i <= BACKPACK_END; i++) {
-            if (!inventory.getItem(i).isEmpty()) {
-                count++;
-            }
-        }
-        return count >= 3; // Se activará en cuanto tenga 3 o más slots ocupados
-    }
-
     @Override
     public ItemStack getWorkTool() {
         return new ItemStack(Items.IRON_HOE);
@@ -485,21 +366,21 @@ public class FarmerProfession implements ProfessionLogic {
 
     @Override
     public long getWorkStartTime() {
-        return 1000L; // Comienza por la mañana (7:00 AM)
+        return 1000L;
     }
 
     @Override
     public long getWorkEndTime() {
-        return 6000L; // Pausa del mediodía (12:00 PM)
+        return 6000L;
     }
 
     @Override
     public long getSecondWorkStartTime() {
-        return 8000L; // Regresa de la pausa (2:00 PM)
+        return 8000L;
     }
 
     @Override
     public long getSecondWorkEndTime() {
-        return 11500L; // Termina la jornada tarde (5:30 PM)
+        return 11500L;
     }
 }

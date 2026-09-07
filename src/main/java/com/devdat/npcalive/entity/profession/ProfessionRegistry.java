@@ -10,9 +10,10 @@ public class ProfessionRegistry {
 
     static {
         // Registramos las profesiones que tengan lógica personalizada
+        // Farmer
         LOGIC_MAP.put(NpcProfession.FARMER, new FarmerProfession());
-        // Aquí agregaremos más adelante:
-        // LOGIC_MAP.put(NpcProfession.BLACKSMITH, new BlacksmithProfession());
+        // Smith
+        LOGIC_MAP.put(NpcProfession.SMITH, new SmithProfession());
     }
 
     public static ProfessionLogic getLogic(NpcProfession profession) {
