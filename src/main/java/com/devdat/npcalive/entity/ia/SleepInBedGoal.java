@@ -7,8 +7,10 @@ import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
+import net.minecraft.world.phys.AABB;
 
 import java.util.EnumSet;
+import java.util.List;
 
 public class SleepInBedGoal extends Goal {
     private final NpcEntity npc;
@@ -43,18 +45,44 @@ public class SleepInBedGoal extends Goal {
         return pos;
     }
 
+    /**
+     * Verifica si hay CUALQUIER otro NPC durmiendo o parado encima de la cabecera de esta cama.
+     */
+    private boolean isAnotherNpcInBed(BlockPos bedHead) {
+        AABB bedBox = new AABB(bedHead).inflate(0.2D);
+        List<NpcEntity> nearbyNpcs = npc.level().getEntitiesOfClass(NpcEntity.class, bedBox);
+
+        for (NpcEntity otherNpc : nearbyNpcs) {
+            if (otherNpc != npc) {
+                // Si otro NPC ya está durmiendo aquí O está a punto de dormirse sobre el bloque
+                if (otherNpc.isSleeping() || otherNpc.blockPosition().equals(bedHead)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     @Override
     public boolean canUse() {
         if (npc.getBehavior() == NpcEntity.NpcBehavior.STAY) return false;
 
-        // Si no tiene cama o la que tenía fue ocupada por otro, busca una libre
         BlockPos currentHead = getBedHeadPos();
-        if (currentHead == null || npc.isBedTaken(currentHead)) {
+
+        // Si no tiene cama, si fue tomada por el mapa de asignación O si hay otro NPC durmiendo físicamente en ella
+        if (currentHead == null || npc.isBedTaken(currentHead) || isAnotherNpcInBed(currentHead)) {
+            npc.setBedPos(null);
             npc.searchAndAssignBed();
         }
 
         BlockPos bedHead = getBedHeadPos();
         if (bedHead == null) return false;
+
+        // Doble verificación: Si la cama que le dio la búsqueda sigue teniendo a alguien durmiendo, cancela
+        if (isAnotherNpcInBed(bedHead)) {
+            npc.setBedPos(null);
+            return false;
+        }
 
         if (npc.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             long timeOfDay = serverLevel.getDefaultClockTime() % 24000;
@@ -89,9 +117,19 @@ public class SleepInBedGoal extends Goal {
             return false;
         }
 
+        // LLEGÓ A LA CAMA
         if (npc.blockPosition().distSqr(bedHead) <= 2.5D) {
             npc.getNavigation().stop();
+
             if (!npc.isSleeping()) {
+                // VERIFICACIÓN CRÍTICA DE ÚLTIMO SEGUNDO:
+                // Si alguien más llegó un instante antes y se acostó, aborta e intenta buscar otra cama.
+                if (isAnotherNpcInBed(bedHead)) {
+                    npc.setBedPos(null);
+                    npc.searchAndAssignBed();
+                    return false;
+                }
+
                 npc.setPos(bedHead.getX() + 0.5D, bedHead.getY() + 0.6875D, bedHead.getZ() + 0.5D);
                 npc.startSleeping(bedHead);
             }

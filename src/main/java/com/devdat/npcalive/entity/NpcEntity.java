@@ -1,9 +1,6 @@
 package com.devdat.npcalive.entity;
 
-import com.devdat.npcalive.entity.ia.FollowPlayerGoal;
-import com.devdat.npcalive.entity.ia.ReturnHomeGoal;
-import com.devdat.npcalive.entity.ia.SleepInBedGoal;
-import com.devdat.npcalive.entity.ia.WorkAtStationGoal;
+import com.devdat.npcalive.entity.ia.*;
 import com.devdat.npcalive.network.OpenNpcGuiPacket;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -101,26 +98,30 @@ public class NpcEntity extends PathfinderMob {
         super.registerGoals();
 
         this.goalSelector.addGoal(0, new FloatGoal(this));
-        this.goalSelector.addGoal(1, new net.minecraft.world.entity.ai.goal.OpenDoorGoal(this, true));
 
-        // Prioridad 2: El trabajo es la máxima prioridad durante el horario laboral
-        this.goalSelector.addGoal(2, new WorkAtStationGoal(this, 1.0D));
+        // Prioridad 1: Movimiento crítico vertical(tp) y de paso
+        this.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.OpenDoorGoal(this, true));
+        this.goalSelector.addGoal(2, new TeleportGoal(this));
 
-        // Prioridad 3: Volver a casa inmediatamente al terminar el turno
-        this.goalSelector.addGoal(3, new ReturnHomeGoal(this, 1.0D));
 
-        // Prioridad 4: Dormir si es de noche
-        this.goalSelector.addGoal(4, new SleepInBedGoal(this, 1.0D));
+        // Prioridad 3: El trabajo es la máxima prioridad durante el horario laboral y Tphome si no hace pathfinding
+        this.goalSelector.addGoal(3, new WorkAtStationGoal(this, 1.0D));
 
-        // Prioridad 5: Seguir al jugador si se le solicita
-        this.goalSelector.addGoal(5, new FollowPlayerGoal(this, 1.2D, 4.0F, 16.0F));
+        // Prioridad 4: Volver a casa inmediatamente al terminar el turno
+        this.goalSelector.addGoal(4, new ReturnHomeGoal(this, 1.0D));
 
-        // Prioridad 6: Acciones pasivas de atención
-        this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 8.0F));
-        this.goalSelector.addGoal(6, new RandomLookAroundGoal(this));
+        // Prioridad 5: Dormir si es de noche
+        this.goalSelector.addGoal(5, new SleepInBedGoal(this, 1.0D));
 
-        // Prioridad 7: Deambular (Último recurso cuando está libre)
-        this.goalSelector.addGoal(7, new RandomStrollGoal(this, 1.0D) {
+        // Prioridad 6: Seguir al jugador si se le solicita
+        this.goalSelector.addGoal(6, new FollowPlayerGoal(this, 1.2D, 4.0F, 16.0F));
+
+        // Prioridad 7: Acciones pasivas de atención
+        this.goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 8.0F));
+        this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
+
+        // Prioridad 8: Deambular (Último recurso cuando está libre)
+        this.goalSelector.addGoal(8, new RandomStrollGoal(this, 1.0D) {
             @Override
             public boolean canUse() {
                 if (NpcEntity.this.isInteracting() || NpcEntity.this.getBehavior() != NpcBehavior.WANDER) {
@@ -144,9 +145,24 @@ public class NpcEntity extends PathfinderMob {
     @Override
     public void aiStep() {
         super.aiStep();
+
         if (this.interactionPauseTimer > 0) {
             this.interactionPauseTimer--;
             this.getNavigation().stop();
+        }
+
+        // Si el bloque debajo de los pies del NPC es su estación de trabajo, lo bajamos
+        BlockPos workPos = this.getValidWorkPos();
+        if (workPos != null && this.blockPosition().below().equals(workPos)) {
+            for (net.minecraft.core.Direction dir : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+                BlockPos safePos = workPos.relative(dir);
+                // Busca un bloque adyacente que tenga aire arriba y suelo sólido abajo
+                if (this.level().getBlockState(safePos).isAir() && this.level().getBlockState(safePos.below()).blocksMotion()) {
+                    this.teleportTo(safePos.getX() + 0.5D, safePos.getY(), safePos.getZ() + 0.5D);
+                    this.getNavigation().stop();
+                    break;
+                }
+            }
         }
     }
 
@@ -228,8 +244,8 @@ public class NpcEntity extends PathfinderMob {
         output.putInt("NpcBehavior", this.getBehavior().ordinal());
         output.putInt("Romance", this.getRomance());
         output.putBoolean("IsMarried", this.isMarried());
-        output.putBoolean("IsFamily", this.isFamily()); // Usando el método sincronizado
-        output.putString("NpcProfession", this.getProfession().name()); // Guardamos la profesión como texto
+        output.putBoolean("IsFamily", this.isFamily());
+        output.putString("NpcProfession", this.getProfession().name());
 
         // Guardar la mochila
         net.minecraft.world.ContainerHelper.saveAllItems(output.child("NpcInventory"), this.inventory.getItems());
@@ -717,5 +733,4 @@ public class NpcEntity extends PathfinderMob {
         // Si la mochila está completamente llena
         return false;
     }
-
 }
