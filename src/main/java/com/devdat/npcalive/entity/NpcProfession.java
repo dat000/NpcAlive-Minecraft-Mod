@@ -11,7 +11,8 @@ import java.util.Map;
 public enum NpcProfession {
     NONE(null),
     FARMER(Blocks.COMPOSTER),
-    SMITH(Blocks.SMITHING_TABLE);
+    SMITH(Blocks.SMITHING_TABLE),
+    BUTCHER(Blocks.SMOKER);
 
     private final Block workstationBlock;
 

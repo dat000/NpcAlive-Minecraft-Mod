@@ -14,6 +14,8 @@ public class ProfessionRegistry {
         LOGIC_MAP.put(NpcProfession.FARMER, new FarmerProfession());
         // Smith
         LOGIC_MAP.put(NpcProfession.SMITH, new SmithProfession());
+        // Butcher
+        LOGIC_MAP.put(NpcProfession.BUTCHER, new ButcherProfession());
     }
 
     public static ProfessionLogic getLogic(NpcProfession profession) {
