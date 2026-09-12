@@ -75,11 +75,15 @@ public class FishermanProfession implements ProfessionLogic {
     public void tickWork(NpcEntity npc, BlockPos targetPos, BlockPos workPos, int workTimer) {
         if (!(npc.level() instanceof ServerLevel serverLevel)) return;
 
-        // Busca agua alrededor de su posición de trabajo para lanzar los efectos ahí
+        // Asegura que tenga la caña en la mano principal mientras trabaja
+        npc.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.FISHING_ROD));
+
         BlockPos waterPos = findNearbyWater(serverLevel, workPos, 5);
         BlockPos effectPos = waterPos != null ? waterPos : workPos;
 
-        // El NPC hace gestos con la caña hacia el agua
+        // NUEVO: Obliga al NPC a mantener la mirada en el agua (centro del bloque)
+        npc.getLookControl().setLookAt(effectPos.getX() + 0.5D, effectPos.getY(), effectPos.getZ() + 0.5D, 30.0F, 30.0F);
+
         if (workTimer % 20 == 0) {
             npc.swing(InteractionHand.MAIN_HAND, true);
             serverLevel.sendParticles(ParticleTypes.SPLASH,
