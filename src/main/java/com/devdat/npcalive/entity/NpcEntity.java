@@ -565,8 +565,8 @@ public class NpcEntity extends PathfinderMob {
 
     public boolean searchAndAssignWorkstation() {
         BlockPos currentPos = this.blockPosition();
-        int radius = 16; // Ampliamos un poco el radio para pruebas
-        int verticalRange = 6; // Ampliamos de 3 a 6 bloques hacia arriba y abajo
+        int radius = 16;
+        int verticalRange = 6;
 
         System.out.println("[NPC Debug] " + this.getNpcTitle() + " buscando estación de trabajo alrededor de: " + currentPos);
 
@@ -576,8 +576,14 @@ public class NpcEntity extends PathfinderMob {
 
             BlockState state = this.level().getBlockState(bp);
 
-            // Verificamos si el bloque coincide con alguna profesión
-            NpcProfession foundProf = NpcProfession.getByWorkstation(state);
+            // Verificamos de forma segura comprobando cada profesión del enum
+            NpcProfession foundProf = NpcProfession.NONE;
+            for (NpcProfession prof : NpcProfession.values()) {
+                if (prof != NpcProfession.NONE && prof.matchesWorkstation(state)) {
+                    foundProf = prof;
+                    break;
+                }
+            }
 
             if (foundProf != NpcProfession.NONE) {
                 System.out.println("[NPC Debug] ¡Bloque de trabajo encontrado!: " + state.getBlock().getName().getString() + " en " + bp);
