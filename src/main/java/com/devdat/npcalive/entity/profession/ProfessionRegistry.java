@@ -20,6 +20,8 @@ public class ProfessionRegistry {
         LOGIC_MAP.put(NpcProfession.FISHERMAN, new FishermanProfession());
         // Librarian
         LOGIC_MAP.put(NpcProfession.LIBRARIAN, new LibrarianProfession());
+        // Cleric
+        LOGIC_MAP.put(NpcProfession.CLERIC, new ClericProfession());
     }
 
     public static ProfessionLogic getLogic(NpcProfession profession) {

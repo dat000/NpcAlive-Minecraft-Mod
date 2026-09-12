@@ -8,18 +8,14 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.SimpleContainer;
-import net.minecraft.world.Container;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class SmithProfession implements ProfessionLogic {
-
-    private static final int WORK_RADIUS = 6;
 
     @Override
     public BlockPos getTargetPosition(NpcEntity npc, BlockPos workPos) {
@@ -31,26 +27,30 @@ public class SmithProfession implements ProfessionLogic {
         boolean endingFirst = timeOfDay >= (getWorkEndTime() - 400) && timeOfDay < getWorkEndTime();
         boolean endingSecond = getSecondWorkEndTime() != -1 && timeOfDay >= (getSecondWorkEndTime() - 400) && timeOfDay < getSecondWorkEndTime();
 
-        // Prioridad absoluta: Guardar ítems en el cofre al terminar turno o si está lleno
+        // Prioridad absoluta: Buscar cofre al lado de CUALQUIER estación del herrero (Mesa, Alto Horno o Yunque)
         if ((endingFirst || endingSecond || hasEnoughItemsToStore(inventory)) && hasAnyItemInBackpack(inventory)) {
-            BlockPos chestPos = findChestAdjacentToWorkstation(serverLevel, workPos);
+            BlockPos chestPos = findChestAdjacentToAnyStation(serverLevel, workPos);
             if (chestPos != null) {
                 return chestPos.north().immutable();
             }
         }
 
-        // Recolectar estaciones disponibles alrededor de la mesa de trabajo
+        // Recolectar estaciones disponibles alrededor y calcular posiciones de parada seguras
         List<BlockPos> availableStations = new ArrayList<>();
-        availableStations.add(workPos); // Mesa de trabajo principal
 
+        // 1. Estación principal (Mesa de trabajo)
+        availableStations.add(findSafeStandingNear(serverLevel, workPos));
+
+        // 2. Alto Horno (si existe)
         BlockPos blastFurnacePos = getAdjacentBlock(serverLevel, workPos, Blocks.BLAST_FURNACE);
         if (blastFurnacePos != null) {
-            availableStations.add(blastFurnacePos.north().immutable());
+            availableStations.add(findSafeStandingNear(serverLevel, blastFurnacePos));
         }
 
+        // 3. Yunque (si existe)
         BlockPos anvilPos = getAdjacentBlock(serverLevel, workPos, Blocks.ANVIL, Blocks.CHIPPED_ANVIL, Blocks.DAMAGED_ANVIL);
         if (anvilPos != null) {
-            availableStations.add(anvilPos.north().immutable());
+            availableStations.add(findSafeStandingNear(serverLevel, anvilPos));
         }
 
         // Rotación estable: cambia de estación cada 200 ticks (10 segundos) de forma fluida
@@ -60,12 +60,48 @@ public class SmithProfession implements ProfessionLogic {
         return availableStations.get(index);
     }
 
+    // Método auxiliar para buscar cofre alrededor de la mesa, alto horno o yunque
+    private BlockPos findChestAdjacentToAnyStation(ServerLevel level, BlockPos workPos) {
+        // Revisar mesa principal
+        BlockPos chest = findChestAdjacentToWorkstation(level, workPos);
+        if (chest != null) return chest;
+
+        // Revisar alto horno
+        BlockPos blastFurnace = getAdjacentBlock(level, workPos, Blocks.BLAST_FURNACE);
+        if (blastFurnace != null) {
+            chest = findChestAdjacentToWorkstation(level, blastFurnace);
+            if (chest != null) return chest;
+        }
+
+        // Revisar yunque
+        BlockPos anvil = getAdjacentBlock(level, workPos, Blocks.ANVIL, Blocks.CHIPPED_ANVIL, Blocks.DAMAGED_ANVIL);
+        if (anvil != null) {
+            chest = findChestAdjacentToWorkstation(level, anvil);
+            if (chest != null) return chest;
+        }
+
+        return null;
+    }
+
+    private BlockPos findSafeStandingNear(ServerLevel level, BlockPos targetBlockPos) {
+        for (net.minecraft.core.Direction dir : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+            BlockPos sidePos = targetBlockPos.relative(dir);
+            if (!level.getBlockState(sidePos).blocksMotion() && level.getBlockState(sidePos.below()).blocksMotion()) {
+                return sidePos.immutable();
+            }
+        }
+        return targetBlockPos.north().immutable();
+    }
+
     @Override
     public void tickWork(NpcEntity npc, BlockPos targetPos, BlockPos workPos, int workTimer) {
         if (!(npc.level() instanceof ServerLevel serverLevel)) return;
+        SimpleContainer inventory = npc.getInventory();
+        if (handleChestTick(serverLevel, targetPos, inventory, workTimer, npc)) return;
 
         BlockPos blastFurnace = getAdjacentBlock(serverLevel, targetPos, Blocks.BLAST_FURNACE);
         if (blastFurnace != null) {
+            npc.getLookControl().setLookAt(blastFurnace.getX() + 0.5D, blastFurnace.getY() + 0.5D, blastFurnace.getZ() + 0.5D, 30.0F, 30.0F);
             if (workTimer % 20 == 0) {
                 npc.swing(InteractionHand.MAIN_HAND, true);
                 serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, blastFurnace.getX() + 0.5D, blastFurnace.getY() + 1.0D, blastFurnace.getZ() + 0.5D, 2, 0.2, 0.2, 0.2, 0.02);
@@ -76,6 +112,7 @@ public class SmithProfession implements ProfessionLogic {
 
         BlockPos anvil = getAdjacentBlock(serverLevel, targetPos, Blocks.ANVIL, Blocks.CHIPPED_ANVIL, Blocks.DAMAGED_ANVIL);
         if (anvil != null) {
+            npc.getLookControl().setLookAt(anvil.getX() + 0.5D, anvil.getY() + 0.5D, anvil.getZ() + 0.5D, 30.0F, 30.0F);
             if (workTimer % 40 == 0) {
                 npc.swing(InteractionHand.MAIN_HAND, true);
                 serverLevel.sendParticles(ParticleTypes.LAVA, anvil.getX() + 0.5D, anvil.getY() + 1.0D, anvil.getZ() + 0.5D, 1, 0.1, 0.1, 0.1, 0.01);
@@ -84,38 +121,23 @@ public class SmithProfession implements ProfessionLogic {
             return;
         }
 
-        // Trabajo principal en la mesa de trabajo (workPos)
-        if (targetPos.equals(workPos)) {
-            if (workTimer % 40 == 0) {
-                npc.swing(InteractionHand.MAIN_HAND, true);
-                serverLevel.playSound(null, workPos, SoundEvents.ANVIL_USE, SoundSource.NEUTRAL, 0.5F, 1.0F);
-                serverLevel.sendParticles(ParticleTypes.LAVA,
-                        workPos.getX() + 0.5, workPos.getY() + 1.1, workPos.getZ() + 0.5,
-                        3, 0.2, 0.2, 0.2, 0.0);
-            }
+        npc.getLookControl().setLookAt(workPos.getX() + 0.5D, workPos.getY() + 0.5D, workPos.getZ() + 0.5D, 30.0F, 30.0F);
+        if (workTimer % 40 == 0) {
+            npc.swing(InteractionHand.MAIN_HAND, true);
+            serverLevel.playSound(null, workPos, SoundEvents.ANVIL_USE, SoundSource.NEUTRAL, 0.5F, 1.0F);
+            serverLevel.sendParticles(ParticleTypes.LAVA,
+                    workPos.getX() + 0.5, workPos.getY() + 1.1, workPos.getZ() + 0.5,
+                    3, 0.2, 0.2, 0.2, 0.0);
         }
     }
 
     @Override
     public void performWork(NpcEntity npc, BlockPos targetPos, BlockPos workPos) {
         if (!(npc.level() instanceof ServerLevel serverLevel)) return;
-
         SimpleContainer inventory = npc.getInventory();
 
-        // 1. Verificación de cofre para vaciar inventario
-        BlockPos chestPos = getAdjacentBlock(serverLevel, targetPos, Blocks.CHEST, Blocks.TRAPPED_CHEST);
-        if (chestPos != null) {
-            BlockEntity blockEntity = serverLevel.getBlockEntity(chestPos);
-            if (blockEntity instanceof Container chestContainer) {
-                if (transferBackpackToChest(inventory, chestContainer)) {
-                    serverLevel.blockEvent(chestPos, serverLevel.getBlockState(chestPos).getBlock(), 1, 0);
-                    serverLevel.playSound(null, chestPos, SoundEvents.CHEST_CLOSE, SoundSource.BLOCKS, 0.5F, 1.0F);
-                    return;
-                }
-            }
-        }
+        if (handleChestPerform(serverLevel, targetPos, inventory)) return;
 
-        // 2. Trabajo en Alto Horno
         BlockPos blastFurnace = getAdjacentBlock(serverLevel, targetPos, Blocks.BLAST_FURNACE);
         if (blastFurnace != null) {
             npc.swing(InteractionHand.MAIN_HAND, true);
@@ -123,7 +145,6 @@ public class SmithProfession implements ProfessionLogic {
             return;
         }
 
-        // 3. Trabajo en Yunque
         BlockPos anvil = getAdjacentBlock(serverLevel, targetPos, Blocks.ANVIL, Blocks.CHIPPED_ANVIL, Blocks.DAMAGED_ANVIL);
         if (anvil != null) {
             npc.swing(InteractionHand.MAIN_HAND, true);
@@ -131,26 +152,23 @@ public class SmithProfession implements ProfessionLogic {
             return;
         }
 
-        // 4. Trabajo principal en su estación (workPos)
-        if (targetPos.equals(workPos)) {
-            npc.swing(InteractionHand.MAIN_HAND, true);
-            giveSmithReward(npc, serverLevel, workPos);
-        }
+        npc.swing(InteractionHand.MAIN_HAND, true);
+        giveSmithReward(npc, serverLevel, workPos);
     }
 
     private void giveSmithReward(NpcEntity npc, ServerLevel serverLevel, BlockPos pos) {
         float roll = serverLevel.getRandom().nextFloat();
         ItemStack reward;
 
-        if (roll < 0.90F) { // 90% de probabilidad: Pepitas o Carbón (Materiales básicos)
+        if (roll < 0.90F) {
             reward = serverLevel.getRandom().nextBoolean()
                     ? new ItemStack(Items.IRON_NUGGET, 1 + serverLevel.getRandom().nextInt(2))
                     : new ItemStack(Items.COAL, 1);
-        } else if (roll < 0.98F) { // 8% de probabilidad: Lingote de hierro (Intermedio)
+        } else if (roll < 0.98F) {
             reward = new ItemStack(Items.IRON_INGOT, 1);
-        } else if (roll < 0.998F) { // 1.8% de probabilidad: Pico de hierro (Raro)
+        } else if (roll < 0.998F) {
             reward = new ItemStack(Items.IRON_PICKAXE, 1);
-        } else { // 0.2% de probabilidad: Armadura de caballo de hierro (Muy raro / Excepcional)
+        } else {
             reward = new ItemStack(Items.IRON_HORSE_ARMOR, 1);
         }
 

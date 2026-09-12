@@ -2,16 +2,17 @@ package com.devdat.npcalive.entity.profession;
 
 import com.devdat.npcalive.entity.NpcEntity;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.SimpleContainer;
 
-public class LibrarianProfession implements ProfessionLogic {
+public class ClericProfession implements ProfessionLogic {
 
     @Override
     public BlockPos getTargetPosition(NpcEntity npc, BlockPos workPos) {
@@ -31,7 +32,7 @@ public class LibrarianProfession implements ProfessionLogic {
             }
         }
 
-        // 2. Posicionamiento seguro garantizando que haya espacio libre y suelo sólido abajo
+        // 2. Posicionamiento seguro alrededor del soporte de alquimia
         for (net.minecraft.core.Direction dir : net.minecraft.core.Direction.Plane.HORIZONTAL) {
             BlockPos sidePos = workPos.relative(dir);
             if (!serverLevel.getBlockState(sidePos).blocksMotion() && serverLevel.getBlockState(sidePos.below()).blocksMotion()) {
@@ -39,7 +40,6 @@ public class LibrarianProfession implements ProfessionLogic {
             }
         }
 
-        // Fallback seguro por si los 4 lados están ocupados
         return workPos.north().immutable();
     }
 
@@ -49,24 +49,12 @@ public class LibrarianProfession implements ProfessionLogic {
         SimpleContainer inventory = npc.getInventory();
         if (handleChestTick(serverLevel, targetPos, inventory, workTimer, npc)) return;
 
-        // Sostiene un libro en la mano para leer
-        npc.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BOOK));
-
-        // Fija la mirada en el atril
-        npc.getLookControl().setLookAt(workPos.getX() + 0.5D, workPos.getY() + 1.0D, workPos.getZ() + 0.5D, 30.0F, 30.0F);
-
-        // Efectos visuales de estudio (Letras mágicas) y cambio de página
-        if (workTimer % 15 == 0) {
-            // Partículas de letras volando desde el atril
-            serverLevel.sendParticles(ParticleTypes.ENCHANT,
-                    workPos.getX() + 0.5D, workPos.getY() + 1.2D, workPos.getZ() + 0.5D,
-                    3, 0.2, 0.2, 0.2, 0.05);
-        }
-
-        if (workTimer % 80 == 0) {
-            // Animación de pasar de página
+        if (workTimer % 40 == 0) {
             npc.swing(InteractionHand.MAIN_HAND, true);
-            serverLevel.playSound(null, workPos, SoundEvents.BOOK_PAGE_TURN, SoundSource.BLOCKS, 0.5F, serverLevel.getRandom().nextFloat() * 0.2F + 0.9F);
+            serverLevel.playSound(null, workPos, SoundEvents.BREWING_STAND_BREW, SoundSource.BLOCKS, 0.5F, 1.0F);
+            serverLevel.sendParticles(ParticleTypes.WITCH,
+                    workPos.getX() + 0.5, workPos.getY() + 1.0, workPos.getZ() + 0.5,
+                    3, 0.2, 0.2, 0.2, 0.0);
         }
     }
 
@@ -78,29 +66,45 @@ public class LibrarianProfession implements ProfessionLogic {
         // Maneja automáticamente la apertura, transferencia y cierre del cofre
         if (handleChestPerform(serverLevel, targetPos, inventory)) return;
 
-        // 2. Generación de recompensas
+        // 2. Generación de recompensas de alquimia
         npc.swing(InteractionHand.MAIN_HAND, true);
-        giveLibrarianReward(npc, serverLevel, workPos);
+        giveClericReward(npc, serverLevel, workPos);
     }
 
-    private void giveLibrarianReward(NpcEntity npc, ServerLevel serverLevel, BlockPos pos) {
+    private void giveClericReward(NpcEntity npc, ServerLevel serverLevel, BlockPos pos) {
         float roll = serverLevel.getRandom().nextFloat();
         ItemStack reward;
 
-        if (roll < 0.60F) {
-            reward = new ItemStack(Items.PAPER, serverLevel.getRandom().nextInt(2) + 1); // 1-2 papeles
-        } else if (roll < 0.85F) {
-            reward = new ItemStack(Items.BOOK, 1);
-        } else if (roll < 0.95F) {
-            reward = new ItemStack(Items.NAME_TAG, 1);
-        } else {
-            reward = new ItemStack(Items.COMPASS, 1);
+        if (roll < 0.85F) { // Polvo de Redstone o Piedra Luminosa (Básico)
+            reward = serverLevel.getRandom().nextBoolean()
+                    ? new ItemStack(Items.REDSTONE, 1 + serverLevel.getRandom().nextInt(2))
+                    : new ItemStack(Items.GLOWSTONE_DUST, 1);
+        } else if (roll < 0.95F) { // Lapislázuli o Verruga Abisal (Intermedio)
+            reward = serverLevel.getRandom().nextBoolean()
+                    ? new ItemStack(Items.LAPIS_LAZULI, 1)
+                    : new ItemStack(Items.NETHER_WART, 1);
+        } else if (roll < 0.99F) { // Polvo de Blaze (Raro)
+            reward = new ItemStack(Items.BLAZE_POWDER, 1);
+        } else { // Botella de experiencia (Muy raro)
+            reward = new ItemStack(Items.EXPERIENCE_BOTTLE, 1);
         }
 
         npc.addItemToBackpack(reward);
+        serverLevel.playSound(null, pos, SoundEvents.BREWING_STAND_BREW, SoundSource.BLOCKS, 0.8F, 1.2F);
+    }
 
-        // Sonido sutil cuando el NPC "crea" o "encuentra" conocimiento
-        serverLevel.playSound(null, pos, SoundEvents.PLAYER_LEVELUP, SoundSource.BLOCKS, 0.2F, 2.0F);
+    @Override
+    public BlockPos findChestAdjacentToWorkstation(ServerLevel level, BlockPos workPos) {
+        // Busca cofres tanto a la altura del soporte como un bloque más abajo (en el suelo junto a la mesa)
+        for (BlockPos center : new BlockPos[]{workPos, workPos.below()}) {
+            for (net.minecraft.core.Direction dir : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+                BlockPos checkPos = center.relative(dir);
+                if (level.getBlockState(checkPos).is(Blocks.CHEST) || level.getBlockState(checkPos).is(Blocks.TRAPPED_CHEST)) {
+                    return checkPos.immutable();
+                }
+            }
+        }
+        return null;
     }
 
     @Override
@@ -110,7 +114,7 @@ public class LibrarianProfession implements ProfessionLogic {
 
     @Override
     public ItemStack getWorkTool() {
-        return new ItemStack(Items.BOOK);
+        return new ItemStack(Items.GLASS_BOTTLE);
     }
 
     @Override

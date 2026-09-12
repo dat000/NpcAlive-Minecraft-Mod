@@ -4,6 +4,7 @@ import com.devdat.npcalive.entity.NpcEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
@@ -66,7 +67,44 @@ public interface ProfessionLogic {
         return null;
     }
 
-    default boolean transferBackpackToChest(SimpleContainer inventory, Container chest) {
+    default void openChest(ServerLevel level, BlockPos chestPos) {
+        BlockState state = level.getBlockState(chestPos);
+        level.blockEvent(chestPos, state.getBlock(), 1, 1);
+        level.playSound(null, chestPos, net.minecraft.sounds.SoundEvents.CHEST_OPEN, net.minecraft.sounds.SoundSource.BLOCKS, 0.5F, 1.0F);
+        level.sendBlockUpdated(chestPos, state, state, 3);
+
+        // Si es un cofre doble, actualizar también la otra mitad para que la animación no falle
+        if (state.hasProperty(net.minecraft.world.level.block.ChestBlock.TYPE)) {
+            net.minecraft.world.level.block.state.properties.ChestType type = state.getValue(net.minecraft.world.level.block.ChestBlock.TYPE);
+            if (type != net.minecraft.world.level.block.state.properties.ChestType.SINGLE) {
+                BlockPos otherPos = chestPos.relative(net.minecraft.world.level.block.ChestBlock.getConnectedDirection(state));
+                BlockState otherState = level.getBlockState(otherPos);
+                level.blockEvent(otherPos, otherState.getBlock(), 1, 1);
+                level.sendBlockUpdated(otherPos, otherState, otherState, 3);
+            }
+        }
+    }
+
+    default void closeChest(ServerLevel level, BlockPos chestPos) {
+        BlockState state = level.getBlockState(chestPos);
+        level.blockEvent(chestPos, state.getBlock(), 1, 0);
+        level.playSound(null, chestPos, net.minecraft.sounds.SoundEvents.CHEST_CLOSE, net.minecraft.sounds.SoundSource.BLOCKS, 0.5F, 1.0F);
+        level.sendBlockUpdated(chestPos, state, state, 3);
+
+        // Sincronizar el cierre de la otra mitad si es un cofre doble
+        if (state.hasProperty(net.minecraft.world.level.block.ChestBlock.TYPE)) {
+            net.minecraft.world.level.block.state.properties.ChestType type = state.getValue(net.minecraft.world.level.block.ChestBlock.TYPE);
+            if (type != net.minecraft.world.level.block.state.properties.ChestType.SINGLE) {
+                BlockPos otherPos = chestPos.relative(net.minecraft.world.level.block.ChestBlock.getConnectedDirection(state));
+                BlockState otherState = level.getBlockState(otherPos);
+                level.blockEvent(otherPos, otherState.getBlock(), 1, 0);
+                level.sendBlockUpdated(otherPos, otherState, otherState, 3);
+            }
+        }
+    }
+
+    // Transfiere los ítems y cierra el cofre al terminar
+    default boolean transferAndCloseChest(ServerLevel level, BlockPos chestPos, SimpleContainer inventory, Container chest) {
         boolean transferredSomething = false;
         int end = getBackpackEnd(inventory);
         for (int i = BACKPACK_START; i <= end; i++) {
@@ -83,7 +121,40 @@ public interface ProfessionLogic {
         if (transferredSomething) {
             inventory.setChanged();
         }
+
+        // Cierra el cofre con su animación y actualización visual real
+        closeChest(level, chestPos);
+
         return transferredSomething;
+    }
+
+    // Helper automático para tickWork (mantiene el cofre abierto mientras el NPC trabaja)
+    default boolean handleChestTick(ServerLevel level, BlockPos targetPos, SimpleContainer inventory, int workTimer, NpcEntity npc) {
+        BlockPos chestPos = getAdjacentBlock(level, targetPos, Blocks.CHEST, Blocks.TRAPPED_CHEST);
+        if (chestPos != null && hasAnyItemInBackpack(inventory)) {
+            // Usamos 1 para que abra al comenzar el ciclo y no se bugee cada 40 ticks al reiniciarse
+            if (workTimer == 1) {
+                openChest(level, chestPos);
+            }
+            npc.getLookControl().setLookAt(chestPos.getX() + 0.5D, chestPos.getY() + 0.5D, chestPos.getZ() + 0.5D, 30.0F, 30.0F);
+            if (workTimer % 20 == 0) {
+                npc.swing(InteractionHand.MAIN_HAND, true);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    // Helper automático para performWork (realiza la transferencia y cierra el cofre)
+    default boolean handleChestPerform(ServerLevel level, BlockPos targetPos, SimpleContainer inventory) {
+        BlockPos chestPos = getAdjacentBlock(level, targetPos, Blocks.CHEST, Blocks.TRAPPED_CHEST);
+        if (chestPos != null) {
+            BlockEntity blockEntity = level.getBlockEntity(chestPos);
+            if (blockEntity instanceof Container chestContainer) {
+                return transferAndCloseChest(level, chestPos, inventory, chestContainer);
+            }
+        }
+        return false;
     }
 
     default ItemStack insertItemIntoChest(Container chest, ItemStack stack) {

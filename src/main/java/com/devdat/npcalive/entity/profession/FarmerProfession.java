@@ -141,7 +141,9 @@ public class FarmerProfession implements ProfessionLogic {
     @Override
     public void tickWork(NpcEntity npc, BlockPos targetPos, BlockPos workPos, int workTimer) {
         if (!(npc.level() instanceof ServerLevel serverLevel)) return;
-        SimpleContainer inventory = npc.getInventory();
+        SimpleContainer inventory = npc.getInventory(); // ✅ Declarado primero
+
+        if (handleChestTick(serverLevel, targetPos, inventory, workTimer, npc)) return;
 
         BlockPos targetPumpkinOrMelon = getAdjacentBlock(serverLevel, targetPos, Blocks.PUMPKIN, Blocks.MELON);
         if (targetPumpkinOrMelon != null) {
@@ -150,16 +152,6 @@ public class FarmerProfession implements ProfessionLogic {
             if (workTimer % 10 == 0) {
                 npc.swing(InteractionHand.MAIN_HAND, true);
                 serverLevel.playSound(null, targetPumpkinOrMelon, SoundEvents.WOOD_HIT, SoundSource.BLOCKS, 0.5F, 0.8F);
-            }
-            return;
-        }
-
-        BlockPos targetChest = getAdjacentBlock(serverLevel, targetPos, Blocks.CHEST, Blocks.TRAPPED_CHEST);
-        if (targetChest != null && hasAnyItemInBackpack(inventory)) {
-            if (workTimer == 0 || workTimer % 20 == 0) {
-                npc.swing(InteractionHand.MAIN_HAND, true);
-                serverLevel.blockEvent(targetChest, serverLevel.getBlockState(targetChest).getBlock(), 1, 1);
-                serverLevel.playSound(null, targetChest, SoundEvents.CHEST_OPEN, SoundSource.BLOCKS, 0.5F, 1.0F);
             }
             return;
         }
@@ -183,22 +175,11 @@ public class FarmerProfession implements ProfessionLogic {
     @Override
     public void performWork(NpcEntity npc, BlockPos targetPos, BlockPos workPos) {
         if (!(npc.level() instanceof ServerLevel serverLevel)) return;
+        SimpleContainer inventory = npc.getInventory(); // ✅ Declarado primero
+
+        if (handleChestPerform(serverLevel, targetPos, inventory)) return;
 
         npc.swing(InteractionHand.MAIN_HAND, true);
-        SimpleContainer inventory = npc.getInventory();
-
-        // 1. Cofre
-        BlockPos chestPos = getAdjacentBlock(serverLevel, targetPos, Blocks.CHEST, Blocks.TRAPPED_CHEST);
-        if (chestPos != null) {
-            BlockEntity blockEntity = serverLevel.getBlockEntity(chestPos);
-            if (blockEntity instanceof Container chestContainer) {
-                if (transferBackpackToChest(inventory, chestContainer)) {
-                    serverLevel.blockEvent(chestPos, serverLevel.getBlockState(chestPos).getBlock(), 1, 0);
-                    serverLevel.playSound(null, chestPos, SoundEvents.CHEST_CLOSE, SoundSource.BLOCKS, 0.5F, 1.0F);
-                    return;
-                }
-            }
-        }
 
         // 2. Calabaza o melón
         BlockPos pumpkinOrMelonPos = getAdjacentBlock(serverLevel, targetPos, Blocks.PUMPKIN, Blocks.MELON);
@@ -208,7 +189,6 @@ public class FarmerProfession implements ProfessionLogic {
             serverLevel.destroyBlock(pumpkinOrMelonPos, false, npc);
             giveHarvestDrops(npc, harvestState, serverLevel);
             serverLevel.playSound(null, pumpkinOrMelonPos, SoundEvents.WOOD_BREAK, SoundSource.BLOCKS, 0.8F, 0.8F);
-            return;
         }
 
         // 3. Compostador

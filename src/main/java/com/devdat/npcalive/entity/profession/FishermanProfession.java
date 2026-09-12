@@ -8,11 +8,9 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.SimpleContainer;
-import net.minecraft.world.Container;
 
 public class FishermanProfession implements ProfessionLogic {
 
@@ -74,6 +72,8 @@ public class FishermanProfession implements ProfessionLogic {
     @Override
     public void tickWork(NpcEntity npc, BlockPos targetPos, BlockPos workPos, int workTimer) {
         if (!(npc.level() instanceof ServerLevel serverLevel)) return;
+        SimpleContainer inventory = npc.getInventory();
+        if (handleChestTick(serverLevel, targetPos, inventory, workTimer, npc)) return;
 
         // Asegura que tenga la caña en la mano principal mientras trabaja
         npc.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.FISHING_ROD));
@@ -81,7 +81,7 @@ public class FishermanProfession implements ProfessionLogic {
         BlockPos waterPos = findNearbyWater(serverLevel, workPos, 5);
         BlockPos effectPos = waterPos != null ? waterPos : workPos;
 
-        // NUEVO: Obliga al NPC a mantener la mirada en el agua (centro del bloque)
+        // Obliga al NPC a mantener la mirada en el agua (centro del bloque)
         npc.getLookControl().setLookAt(effectPos.getX() + 0.5D, effectPos.getY(), effectPos.getZ() + 0.5D, 30.0F, 30.0F);
 
         if (workTimer % 20 == 0) {
@@ -96,21 +96,10 @@ public class FishermanProfession implements ProfessionLogic {
     @Override
     public void performWork(NpcEntity npc, BlockPos targetPos, BlockPos workPos) {
         if (!(npc.level() instanceof ServerLevel serverLevel)) return;
-
         SimpleContainer inventory = npc.getInventory();
 
-        // 1. Verificación de cofre para vaciar inventario
-        BlockPos chestPos = getAdjacentBlock(serverLevel, targetPos, Blocks.CHEST, Blocks.TRAPPED_CHEST);
-        if (chestPos != null) {
-            BlockEntity blockEntity = serverLevel.getBlockEntity(chestPos);
-            if (blockEntity instanceof Container chestContainer) {
-                if (transferBackpackToChest(inventory, chestContainer)) {
-                    serverLevel.blockEvent(chestPos, serverLevel.getBlockState(chestPos).getBlock(), 1, 0);
-                    serverLevel.playSound(null, chestPos, SoundEvents.CHEST_CLOSE, SoundSource.BLOCKS, 0.5F, 1.0F);
-                    return;
-                }
-            }
-        }
+        // Maneja automáticamente la apertura, transferencia y cierre del cofre
+        if (handleChestPerform(serverLevel, targetPos, inventory)) return;
 
         // 2. Obtener recompensa de pesca
         BlockPos waterPos = findNearbyWater(serverLevel, workPos, 5);

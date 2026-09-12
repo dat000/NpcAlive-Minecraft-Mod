@@ -8,11 +8,9 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.SimpleContainer;
-import net.minecraft.world.Container;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -67,10 +65,12 @@ public class ButcherProfession implements ProfessionLogic {
     @Override
     public void tickWork(NpcEntity npc, BlockPos targetPos, BlockPos workPos, int workTimer) {
         if (!(npc.level() instanceof ServerLevel serverLevel)) return;
+        SimpleContainer inventory = npc.getInventory();
+        if (handleChestTick(serverLevel, targetPos, inventory, workTimer, npc)) return;
 
         BlockPos smoker = getAdjacentBlock(serverLevel, targetPos, Blocks.SMOKER);
 
-        // Efectos visuales si está trabajando en un Ahumador o en la mesa principal (Ahumador de la aldea)
+        // Efectos visuales si está trabajando en un Ahumador o en la mesa principal
         if (smoker != null || targetPos.equals(workPos)) {
             BlockPos effectPos = smoker != null ? smoker : workPos;
 
@@ -87,29 +87,17 @@ public class ButcherProfession implements ProfessionLogic {
     @Override
     public void performWork(NpcEntity npc, BlockPos targetPos, BlockPos workPos) {
         if (!(npc.level() instanceof ServerLevel serverLevel)) return;
-
         SimpleContainer inventory = npc.getInventory();
 
-        // 1. Verificación de cofre para vaciar inventario
-        BlockPos chestPos = getAdjacentBlock(serverLevel, targetPos, Blocks.CHEST, Blocks.TRAPPED_CHEST);
-        if (chestPos != null) {
-            BlockEntity blockEntity = serverLevel.getBlockEntity(chestPos);
-            if (blockEntity instanceof Container chestContainer) {
-                if (transferBackpackToChest(inventory, chestContainer)) {
-                    serverLevel.blockEvent(chestPos, serverLevel.getBlockState(chestPos).getBlock(), 1, 0);
-                    serverLevel.playSound(null, chestPos, SoundEvents.CHEST_CLOSE, SoundSource.BLOCKS, 0.5F, 1.0F);
-                    return;
-                }
-            }
-        }
+        // Maneja automáticamente la apertura, transferencia y cierre del cofre
+        if (handleChestPerform(serverLevel, targetPos, inventory)) return;
 
-        // 2. Trabajo en su estación para conseguir recompensas
+        // Trabajo en su estación para conseguir recompensas
         BlockPos smoker = getAdjacentBlock(serverLevel, targetPos, Blocks.SMOKER);
         if (smoker != null || targetPos.equals(workPos)) {
             BlockPos effectPos = smoker != null ? smoker : workPos;
             npc.swing(InteractionHand.MAIN_HAND, true);
 
-            // Nerfeo: Solo otorga recompensa cada 200 ticks (10 segundos) de trabajo continuo
             if (serverLevel.getGameTime() % 200 == 0) {
                 giveButcherReward(npc, serverLevel, effectPos);
             }
@@ -120,7 +108,6 @@ public class ButcherProfession implements ProfessionLogic {
         float roll = serverLevel.getRandom().nextFloat();
         ItemStack reward;
 
-        // Distribución balanceada de comida
         if (roll < 0.60F) { // 60%
             reward = new ItemStack(Items.BEEF, 1);
         } else if (roll < 0.90F) { // 30%
@@ -132,7 +119,6 @@ public class ButcherProfession implements ProfessionLogic {
         }
 
         npc.addItemToBackpack(reward);
-        // Sonido de cortar carne (usando sonido de ataque a entidad carnosa o simplemente comer)
         serverLevel.playSound(null, pos, SoundEvents.HONEY_BLOCK_BREAK, SoundSource.BLOCKS, 0.8F, 0.9F);
     }
 
@@ -143,7 +129,6 @@ public class ButcherProfession implements ProfessionLogic {
 
     @Override
     public ItemStack getWorkTool() {
-        // Le damos un hacha para que parezca un cuchillo de carnicero
         return new ItemStack(Items.IRON_AXE);
     }
 
