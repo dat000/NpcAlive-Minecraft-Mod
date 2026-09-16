@@ -22,12 +22,14 @@ public class ProfessionRegistry {
         LOGIC_MAP.put(NpcProfession.LIBRARIAN, new LibrarianProfession());
         // Cleric
         LOGIC_MAP.put(NpcProfession.CLERIC, new ClericProfession());
-        // MASON || CORTAPIEDRAS
+        // Mason || StoneCutter<-
         LOGIC_MAP.put(NpcProfession.MASON, new MasonProfession());
-        // FLETCHER
+        // Fletcher
         LOGIC_MAP.put(NpcProfession.FLETCHER, new FletcherProfession());
-        // CARTOGRAPHER
+        // Cartographer
         LOGIC_MAP.put(NpcProfession.CARTOGRAPHER, new CartographerProfession());
+        // Leatherworker
+        LOGIC_MAP.put(NpcProfession.LEATHERWORKER, new LeatherworkerProfession());
     }
 
     public static ProfessionLogic getLogic(NpcProfession profession) {
