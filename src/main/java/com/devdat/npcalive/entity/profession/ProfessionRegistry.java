@@ -12,8 +12,6 @@ public class ProfessionRegistry {
         // Registramos las profesiones que tengan lógica personalizada
         // Farmer
         LOGIC_MAP.put(NpcProfession.FARMER, new FarmerProfession());
-        // Smith
-        LOGIC_MAP.put(NpcProfession.SMITH, new SmithProfession());
         // Butcher
         LOGIC_MAP.put(NpcProfession.BUTCHER, new ButcherProfession());
         // Fisherman
@@ -32,6 +30,12 @@ public class ProfessionRegistry {
         LOGIC_MAP.put(NpcProfession.LEATHERWORKER, new LeatherworkerProfession());
         // Shepherd || Pastor
         LOGIC_MAP.put(NpcProfession.SHEPHERD, new ShepherdProfession());
+        // Armorer
+        LOGIC_MAP.put(NpcProfession.ARMORER, new ArmorerProfession());
+        // Toolsmith
+        LOGIC_MAP.put(NpcProfession.TOOLSMITH, new ToolsmithProfession());
+        // Weaponsmith
+        LOGIC_MAP.put(NpcProfession.WEAPONSMITH, new WeaponsmithProfession());
     }
 
     public static ProfessionLogic getLogic(NpcProfession profession) {
