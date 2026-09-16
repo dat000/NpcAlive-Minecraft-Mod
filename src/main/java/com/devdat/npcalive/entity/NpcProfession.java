@@ -17,7 +17,8 @@ public enum NpcProfession {
     LIBRARIAN(Blocks.LECTERN),
     CLERIC(Blocks.BREWING_STAND),
     MASON(Blocks.STONECUTTER),
-    FLETCHER(Blocks.FLETCHING_TABLE);
+    FLETCHER(Blocks.FLETCHING_TABLE),
+    CARTOGRAPHER(Blocks.CARTOGRAPHY_TABLE);
 
     private final Block workstationBlock;
 

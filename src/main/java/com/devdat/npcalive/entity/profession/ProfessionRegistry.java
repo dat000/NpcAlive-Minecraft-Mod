@@ -26,6 +26,8 @@ public class ProfessionRegistry {
         LOGIC_MAP.put(NpcProfession.MASON, new MasonProfession());
         // FLETCHER
         LOGIC_MAP.put(NpcProfession.FLETCHER, new FletcherProfession());
+        // CARTOGRAPHER
+        LOGIC_MAP.put(NpcProfession.CARTOGRAPHER, new CartographerProfession());
     }
 
     public static ProfessionLogic getLogic(NpcProfession profession) {
