@@ -30,6 +30,8 @@ public class ProfessionRegistry {
         LOGIC_MAP.put(NpcProfession.CARTOGRAPHER, new CartographerProfession());
         // Leatherworker
         LOGIC_MAP.put(NpcProfession.LEATHERWORKER, new LeatherworkerProfession());
+        // Shepherd || Pastor
+        LOGIC_MAP.put(NpcProfession.SHEPHERD, new ShepherdProfession());
     }
 
     public static ProfessionLogic getLogic(NpcProfession profession) {

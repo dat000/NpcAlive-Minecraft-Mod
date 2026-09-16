@@ -19,7 +19,8 @@ public enum NpcProfession {
     MASON(Blocks.STONECUTTER),
     FLETCHER(Blocks.FLETCHING_TABLE),
     CARTOGRAPHER(Blocks.CARTOGRAPHY_TABLE),
-    LEATHERWORKER(Blocks.CAULDRON);
+    LEATHERWORKER(Blocks.CAULDRON),
+    SHEPHERD(Blocks.LOOM);
 
     private final Block workstationBlock;
 
