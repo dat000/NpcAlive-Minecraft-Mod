@@ -22,6 +22,8 @@ public class ProfessionRegistry {
         LOGIC_MAP.put(NpcProfession.LIBRARIAN, new LibrarianProfession());
         // Cleric
         LOGIC_MAP.put(NpcProfession.CLERIC, new ClericProfession());
+        // MASON || CORTAPIEDRAS
+        LOGIC_MAP.put(NpcProfession.MASON, new MasonProfession());
     }
 
     public static ProfessionLogic getLogic(NpcProfession profession) {
