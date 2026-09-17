@@ -22,6 +22,7 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.properties.BedPart;
+import com.devdat.npcalive.item.ModItems;
 
 // Imports de IA
 import net.minecraft.world.entity.ai.goal.FloatGoal;
@@ -172,6 +173,18 @@ public class NpcEntity extends PathfinderMob {
 
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
+        ItemStack itemInHand = player.getItemInHand(hand);
+
+        // Comprobamos si tiene alguna de las 4 herramientas de debug
+        if (itemInHand.is(ModItems.PROFESSION_DEBUGGER.get()) ||
+                itemInHand.is(ModItems.FAMILY_DEBUGGER.get()) ||
+                itemInHand.is(ModItems.SPOUSE_DEBUGGER.get()) ||
+                itemInHand.is(ModItems.FRIENDSHIP_DEBUGGER.get())) {
+
+            return InteractionResult.PASS; // Ignoramos el menú y dejamos que el ítem actúe
+        }
+
+        // 2. Si no tiene la varita, ejecutamos tu código normal para abrir la GUI
         if (!this.level().isClientSide() && player instanceof ServerPlayer serverPlayer) {
             this.interactionPauseTimer = 100; // Pausa por 5 segundos
             this.getNavigation().stop();

@@ -1,4 +1,11 @@
 {
+  "itemGroup.npcalive.tab": "NPC Alive",
+
+  "item.npcalive.family_debugger": "Family debugger",
+  "item.npcalive.friendship_debugger": "Friendship debugger",
+  "item.npcalive.profession_debugger": "Profession debugger",
+  "item.npcalive.spouse_debugger": "Spouse debugger",
+
   "dialog.npcalive.greeting": "Hello! My name is %s",
   "dialog.npcalive.gender": "Gender: %s",
   "dialog.npcalive.friendship": "Friendship: %d",
