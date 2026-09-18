@@ -39,8 +39,12 @@ public class ReturnHomeGoal extends Goal {
             }
         }
 
-        // Si YA TERMINÓ su turno, 'isWorkingTime' pasa a ser false, activando el 'tooFar' de inmediato
-        boolean tooFar = !isWorkingTime && npc.blockPosition().distSqr(home) > 100.0D;
+        // Si es de noche, el radio permitido es de 10 bloques (100.0D).
+        // Si es de día y terminó de trabajar, se pueden alejar hasta 40 bloques (1600.0D) para socializar y pasear.
+        double maxAllowedDistance = isNight ? 100.0D : 1600.0D;
+
+        // Si YA TERMINÓ su turno, 'isWorkingTime' pasa a ser false, evaluando contra el radio ampliado de día o estricto de noche
+        boolean tooFar = !isWorkingTime && npc.blockPosition().distSqr(home) > maxAllowedDistance;
 
         return (tooFar || isNight) && npc.blockPosition().distSqr(home) > 2.0D;
     }

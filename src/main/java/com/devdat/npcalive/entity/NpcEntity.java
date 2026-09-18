@@ -100,19 +100,17 @@ public class NpcEntity extends PathfinderMob {
 
         this.goalSelector.addGoal(0, new FloatGoal(this));
 
-        // Prioridad 1: Movimiento crítico vertical(tp) y de paso
+        // Prioridad 1: Movimiento crítico vertical (tp) y de paso
         this.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.OpenDoorGoal(this, true));
         this.goalSelector.addGoal(2, new TeleportGoal(this));
 
-
-        // Prioridad 3: El trabajo es la máxima prioridad durante el horario laboral y Tphome si no hace pathfinding
+        // Prioridad 3: Trabajo de día Y Dormir de noche (Son mutuamente excluyentes por horario)
         this.goalSelector.addGoal(3, new WorkAtStationGoal(this, 1.0D));
+        this.goalSelector.addGoal(3, new SleepInBedGoal(this, 1.0D)); // <-- ¡SUBIDO A PRIORIDAD 3!
 
-        // Prioridad 4: Volver a casa inmediatamente al terminar el turno
+        // Prioridad 4: Volver a casa y socializar (Menor prioridad que dormir)
+        this.goalSelector.addGoal(4, new NpcSocializeGoal(this));
         this.goalSelector.addGoal(4, new ReturnHomeGoal(this, 1.0D));
-
-        // Prioridad 5: Dormir si es de noche
-        this.goalSelector.addGoal(5, new SleepInBedGoal(this, 1.0D));
 
         // Prioridad 6: Seguir al jugador si se le solicita
         this.goalSelector.addGoal(6, new FollowPlayerGoal(this, 1.2D, 4.0F, 16.0F));
@@ -527,6 +525,11 @@ public class NpcEntity extends PathfinderMob {
 
     public void setBedPos(net.minecraft.core.BlockPos pos) {
         this.bedPosition = pos;
+        // Si le asignamos una cama (incluso de día), detenemos cualquier movimiento
+        // para forzar al pathfinding a registrar la nueva posición limpiamente.
+        if (this.level() != null && !this.level().isClientSide() && this.getNavigation() != null) {
+            this.getNavigation().stop();
+        }
     }
 
     @Override

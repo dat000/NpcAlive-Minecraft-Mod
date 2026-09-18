@@ -16,6 +16,7 @@ public class SleepInBedGoal extends Goal {
     private final NpcEntity npc;
     private final double speedModifier;
     private int noPathTicks = 0;
+    private boolean hasTriedToSleep = false;
 
     public SleepInBedGoal(NpcEntity npc, double speedModifier) {
         this.npc = npc;
@@ -25,36 +26,43 @@ public class SleepInBedGoal extends Goal {
 
     private BlockPos getBedHeadPos() {
         BlockPos pos = npc.getBedPos();
-        if (pos == null) return null;
+        if (pos == null) {
+            return null;
+        }
 
         BlockState state = npc.level().getBlockState(pos);
 
-        // SEGURIDAD: Si la cama fue destruida o reemplazada por aire/otro bloque
         if (!(state.getBlock() instanceof BedBlock)) {
-            npc.setBedPos(null); // Olvidamos la cama rota
+            npc.setBedPos(null);
             if (npc.isSleeping()) {
-                npc.stopSleeping(); // Nos levantamos inmediatamente
+                npc.stopSleeping();
             }
             return null;
         }
 
-        if (state.getValue(BedBlock.PART) != BedPart.HEAD) {
-            Direction facing = state.getValue(BedBlock.FACING);
-            return pos.relative(facing);
+        if (state.getValue(BedBlock.PART) == BedPart.HEAD) {
+            return pos;
         }
+
+        // Búsqueda inteligente
+        for (Direction dir : Direction.Plane.HORIZONTAL) {
+            BlockPos neighborPos = pos.relative(dir);
+            BlockState neighborState = npc.level().getBlockState(neighborPos);
+            if (neighborState.getBlock() instanceof BedBlock &&
+                    neighborState.getValue(BedBlock.PART) == BedPart.HEAD) {
+                return neighborPos;
+            }
+        }
+
         return pos;
     }
 
-    /**
-     * Verifica si hay CUALQUIER otro NPC durmiendo o parado encima de la cabecera de esta cama.
-     */
     private boolean isAnotherNpcInBed(BlockPos bedHead) {
         AABB bedBox = new AABB(bedHead).inflate(0.2D);
         List<NpcEntity> nearbyNpcs = npc.level().getEntitiesOfClass(NpcEntity.class, bedBox);
 
         for (NpcEntity otherNpc : nearbyNpcs) {
             if (otherNpc != npc) {
-                // Si otro NPC ya está durmiendo aquí O está a punto de dormirse sobre el bloque
                 if (otherNpc.isSleeping() || otherNpc.blockPosition().equals(bedHead)) {
                     return true;
                 }
@@ -65,20 +73,21 @@ public class SleepInBedGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        if (npc.getBehavior() == NpcEntity.NpcBehavior.STAY) return false;
+        if (npc.getBehavior() == NpcEntity.NpcBehavior.STAY) {
+            return false;
+        }
 
         BlockPos currentHead = getBedHeadPos();
-
-        // Si no tiene cama, si fue tomada por el mapa de asignación O si hay otro NPC durmiendo físicamente en ella
         if (currentHead == null || npc.isBedTaken(currentHead) || isAnotherNpcInBed(currentHead)) {
             npc.setBedPos(null);
             npc.searchAndAssignBed();
         }
 
         BlockPos bedHead = getBedHeadPos();
-        if (bedHead == null) return false;
+        if (bedHead == null) {
+            return false;
+        }
 
-        // Doble verificación: Si la cama que le dio la búsqueda sigue teniendo a alguien durmiendo, cancela
         if (isAnotherNpcInBed(bedHead)) {
             npc.setBedPos(null);
             return false;
@@ -86,7 +95,8 @@ public class SleepInBedGoal extends Goal {
 
         if (npc.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             long timeOfDay = serverLevel.getDefaultClockTime() % 24000;
-            return timeOfDay >= 13000 && timeOfDay < 23000;
+            boolean isNight = timeOfDay >= 13000 && timeOfDay < 23000;
+            return isNight;
         }
 
         return false;
@@ -94,13 +104,13 @@ public class SleepInBedGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        if (npc.getBehavior() == NpcEntity.NpcBehavior.STAY) return false;
+        if (npc.getBehavior() == NpcEntity.NpcBehavior.STAY) {
+            return false;
+        }
 
         BlockPos bedHead = getBedHeadPos();
         if (bedHead == null) {
-            if (npc.isSleeping()) {
-                npc.stopSleeping();
-            }
+            if (npc.isSleeping()) npc.stopSleeping();
             return false;
         }
 
@@ -108,30 +118,31 @@ public class SleepInBedGoal extends Goal {
             long timeOfDay = serverLevel.getDefaultClockTime() % 24000;
             boolean isNight = timeOfDay >= 13000 && timeOfDay < 23000;
             if (!isNight) {
-                if (npc.isSleeping()) {
-                    npc.stopSleeping();
-                }
+                if (npc.isSleeping()) npc.stopSleeping();
                 return false;
             }
         } else {
             return false;
         }
 
-        // LLEGÓ A LA CAMA
-        if (npc.blockPosition().distSqr(bedHead) <= 2.5D) {
+        if (npc.isSleeping()) {
+            return true;
+        }
+
+        double distanceSqr = npc.position().distanceToSqr(bedHead.getX() + 0.5D, bedHead.getY(), bedHead.getZ() + 0.5D);
+
+        if (distanceSqr <= 2.0D) {
             npc.getNavigation().stop();
 
-            if (!npc.isSleeping()) {
-                // VERIFICACIÓN CRÍTICA DE ÚLTIMO SEGUNDO:
-                // Si alguien más llegó un instante antes y se acostó, aborta e intenta buscar otra cama.
+            if (!hasTriedToSleep) {
                 if (isAnotherNpcInBed(bedHead)) {
                     npc.setBedPos(null);
                     npc.searchAndAssignBed();
                     return false;
                 }
 
-                npc.setPos(bedHead.getX() + 0.5D, bedHead.getY() + 0.6875D, bedHead.getZ() + 0.5D);
                 npc.startSleeping(bedHead);
+                hasTriedToSleep = true;
             }
             return true;
         }
@@ -151,6 +162,7 @@ public class SleepInBedGoal extends Goal {
         BlockPos bedHead = getBedHeadPos();
         if (bedHead != null) {
             noPathTicks = 0;
+            hasTriedToSleep = false;
             npc.getNavigation().moveTo(bedHead.getX() + 0.5D, bedHead.getY(), bedHead.getZ() + 0.5D, speedModifier);
         }
     }
@@ -162,5 +174,6 @@ public class SleepInBedGoal extends Goal {
             npc.stopSleeping();
         }
         noPathTicks = 0;
+        hasTriedToSleep = false;
     }
 }
