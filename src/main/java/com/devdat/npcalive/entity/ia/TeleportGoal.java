@@ -41,6 +41,7 @@ public class TeleportGoal extends Goal {
     @Override
     public boolean canUse() {
         if (npc.getBehavior() == NpcEntity.NpcBehavior.STAY || npc.isSleeping()) {
+            stationaryTicks = 0;
             return false;
         }
 
@@ -60,6 +61,7 @@ public class TeleportGoal extends Goal {
                 boolean heightBlocked = yDiff > 3.0D && (!npc.getNavigation().isInProgress() || npc.getNavigation().isDone());
 
                 if (tooFar || heightBlocked) {
+                    stationaryTicks = 0;
                     return true;
                 }
             }
@@ -78,27 +80,20 @@ public class TeleportGoal extends Goal {
             }
         }
 
-        // 3. CONDICIÓN DE ATASCO / PLATAFORMA AISLADA (WANDER, ir a la cama, etc.)
-        boolean hasBedTarget = false;
-        if (npc.level() instanceof ServerLevel serverLevel) {
-            long timeOfDay = serverLevel.getDefaultClockTime() % 24000;
-            boolean isNight = timeOfDay >= 13000 && timeOfDay < 23000;
-            hasBedTarget = npc.getBedPos() != null && isNight;
-        }
-
-        boolean isTryingToMove = npc.getNavigation().isInProgress() || npc.getBehavior() == NpcEntity.NpcBehavior.WANDER;
-
-        if (hasBedTarget || isTryingToMove) {
+        // 3. CONDICIÓN DE ATASCO REAL (Solo si la navegación está activa y no se mueve)
+        if (npc.getNavigation().isInProgress()) {
             double movedDistSq = npc.position().distanceToSqr(lastPosition);
             if (movedDistSq < 0.002D) {
                 stationaryTicks++;
                 if (stationaryTicks > 100) {
                     stationaryTicks = 0;
-                    return true;
+                    return true; // Atascado de verdad intentando navegar
                 }
             } else {
                 stationaryTicks = 0;
             }
+        } else {
+            stationaryTicks = 0;
         }
 
         lastPosition = npc.position();
