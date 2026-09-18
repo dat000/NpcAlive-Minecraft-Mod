@@ -577,11 +577,16 @@ public class NpcEntity extends PathfinderMob {
     }
 
     public boolean searchAndAssignWorkstation() {
-        BlockPos currentPos = this.blockPosition();
-        int radius = 16;
-        int verticalRange = 6;
+        NpcProfession myProfession = this.getProfession();
 
-        System.out.println("[NPC Debug] " + this.getNpcTitle() + " buscando estación de trabajo alrededor de: " + currentPos);
+        // Si el NPC no tiene profesión (NONE), no busca mesa y se queda sin hacer nada.
+        if (myProfession == NpcProfession.NONE) {
+            return false;
+        }
+
+        BlockPos currentPos = this.blockPosition();
+        int radius = 64; // 64 || 32
+        int verticalRange = 6;
 
         for (BlockPos bp : BlockPos.betweenClosed(
                 currentPos.offset(-radius, -verticalRange, -radius),
@@ -589,31 +594,14 @@ public class NpcEntity extends PathfinderMob {
 
             BlockState state = this.level().getBlockState(bp);
 
-            // Verificamos de forma segura comprobando cada profesión del enum
-            NpcProfession foundProf = NpcProfession.NONE;
-            for (NpcProfession prof : NpcProfession.values()) {
-                if (prof != NpcProfession.NONE && prof.matchesWorkstation(state)) {
-                    foundProf = prof;
-                    break;
-                }
-            }
-
-            if (foundProf != NpcProfession.NONE) {
-                System.out.println("[NPC Debug] ¡Bloque de trabajo encontrado!: " + state.getBlock().getName().getString() + " en " + bp);
-
-                // Verificamos que el bloque no esté ocupado por otro NPC
+            // Solo buscará la mesa que coincida exactamente con su trabajo actual.
+            if (myProfession.matchesWorkstation(state)) {
                 if (!isWorkstationTaken(bp.immutable())) {
-                    this.setProfession(foundProf);
                     this.setWorkPos(bp.immutable());
-                    System.out.println("[NPC Debug] ¡Estación asignada con éxito! Profesión: " + foundProf.name());
                     return true;
-                } else {
-                    System.out.println("[NPC Debug] El bloque en " + bp + " ya está ocupado por otro NPC.");
                 }
             }
         }
-
-        System.out.println("[NPC Debug] No se encontró ninguna estación de trabajo libre en el rango.");
         return false;
     }
 

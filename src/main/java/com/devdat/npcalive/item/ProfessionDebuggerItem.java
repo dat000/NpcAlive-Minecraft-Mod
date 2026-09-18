@@ -23,7 +23,7 @@ public class ProfessionDebuggerItem extends Item {
             if (!player.level().isClientSide()) {
                 // Ciclar entre las profesiones disponibles
                 NpcProfession[] professions = NpcProfession.values();
-                NpcProfession current = npc.getProfession(); // Asegúrate de que este metodo exista en tu NpcEntity
+                NpcProfession current = npc.getProfession();
 
                 int nextIndex = 0;
                 for (int i = 0; i < professions.length; i++) {
@@ -34,10 +34,16 @@ public class ProfessionDebuggerItem extends Item {
                 }
 
                 NpcProfession nextProfession = professions[nextIndex];
-                npc.setProfession(nextProfession); // Asegúrate de tener un setter para la profesión en tu NpcEntity
 
-                // Mensaje de feedback en el chat del desarrollador
-                player.sendSystemMessage(Component.literal("§a[Debug] Profesión cambiada a: §e" + nextProfession.name())
+                // 1. Borramos su mesa actual (Para que deje de trabajar de lo anterior)
+                npc.setWorkPos(null);
+
+                // 2. Le asignamos la nueva profesión
+                npc.setProfession(nextProfession);
+
+                // 3. (OPCIONAL) Borra la línea de "npc.isDebugLocked = true;" si la habías puesto.
+
+                player.sendSystemMessage(Component.literal("§a[Debug] Profesión cambiada a: §e" + npc.getProfession().name())
                         .withStyle(ChatFormatting.GREEN));
             }
             return InteractionResult.SUCCESS;
@@ -49,5 +55,4 @@ public class ProfessionDebuggerItem extends Item {
     public boolean isFoil(ItemStack stack) {
         return true; // Esto activa el brillo de encantamiento por defecto
     }
-
 }
